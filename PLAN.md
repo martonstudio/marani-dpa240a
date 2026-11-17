@@ -14,10 +14,12 @@ An Android app that, plugged into the DPA240A with an OTG cable, reads and sets 
 - THE UNIT ANSWERS. Settings: 9600 baud, 8N1, DTR/RTS off, 13-byte frames `f0 <id> <dev> <cmd> <8 data bytes> f7`, model id **0xC1**, dev 0 for USB. Verified exchanges (sent from the Surface, COM5):
   - connect: TX `f0 c1 00 00 00 00 00 00 00 00 00 00 f7` -> RX `f0 c1 00 00 c1 00 00 00 00 00 00 00 f7`
   - disconnect: TX `f0 c1 00 0f 00*8 f7` -> RX identical echo
-  - cmd 0x22: TX `f0 c1 00 22 00*8 f7` -> RX identical echo (meaning not yet known)
+  - cmd 0x22: echoed once, shortly after a connect/disconnect pair, and not answered on two later tries without one. Whether the unit only answers some commands while connected is an open question to settle first.
   - cmd 0x50 and 0x7d (the later editors' presence queries): no reply. Unknown commands are ignored silently.
 - This is the early-generation dialect. Its only sample so far is the DPA260MFR V2.3 editor (model id 0x12), recorded in `captures/cap4_260MFR_V23.pcap`; installers from the Wayback Machine are in `vendor/wayback/`. The DPA480 V2.5 editor is also installed on the Surface and not yet recorded. `SetupDPA240AV33.rar` (the unit's own editor) is not archived anywhere reachable.
 - `Marani_dpa240/AN-DPA240-2448QRT1.pdf` (application note, no protocol) states the DPA240A shares its hardware with the DPA2448QRT and lists the unit's features: per input 5-band parametric EQ, gain, delay; per output 7-band parametric EQ, crossover up to 24 dB/oct, RMS limiter, delay; full input-to-output matrix; S/PDIF input. The DPA2448QRT editor (`SetupDPA2448QRTV11.rar`) is the closest relative of the missing V33 editor and is downloaded to `vendor/wayback/DPA2448QRT_V11.rar` (not yet unpacked, inspected or installed): use it first. The other three PDFs in that folder are compliance certificates.
+- Opening COM5 can fail ("The port is closed") for a moment after another program releases it: wait a second and retry once before treating it as an error.
+- The DPA2448QRT V1.1 editor is installed on the Surface at `C:\Program Files (x86)\DPA2448QRT V1.1\DPA2448QRT_V1.1.exe` (not yet launched). server has no `innoextract` or `pdftotext`; unpack installers on the Mac if more are needed.
 - Always send disconnect (0x0f) after connect (0x00): connect may lock the front panel.
 - The command numbers in `vendor/DPA480P_SerialProtocol.pdf` (gain 0x01, delay 0x02, ... mute 0x09) are a later relative of this dialect: a hypothesis for the command map, not a fact. Test reads before writes, writes only with amps off.
 - In PowerShell scripts on the Surface, do not name a function `Rd` (alias for Remove-Item; it hangs waiting for input) and run with `< NUL`.
