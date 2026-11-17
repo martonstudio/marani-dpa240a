@@ -1,0 +1,16 @@
+# unpacked copies of the archives in vendor/ (recreate with tar -xf / innoextract)
+vendor/x/
+vendor/app/
+vendor/x240p/
+vendor/app240p/
+vendor/wayback/x_*/
+vendor/wayback/app_*/
+.DS_Store
+# failed Wayback downloads (620-byte rate-limit pages, not archives)
+vendor/wayback/SetupCLP260C18V32.rar
+vendor/wayback/SetupDPA240P(48kHz)V14.rar
+vendor/wayback/SetupDPA2448QRTV11.rar
+# written by the budget hook when the shell sat in a subfolder
+tools/BUDGET.md
+vendor/BUDGET.md
+vendor/wayback/BUDGET.md
