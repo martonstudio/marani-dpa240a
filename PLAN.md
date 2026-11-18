@@ -15,7 +15,7 @@ Candidate map: `vendor/DPA480P_SerialProtocol.pdf`. Rows below are verified agai
 
 | cmd | meaning | TX data | RX | capture |
 |---|---|---|---|---|
-| 0x00 | connect (locks front panel) | 00*8 | `00 c1 00*6` (D0 = model id) | captures/doc1_reads.log |
+| 0x00 | connect: front panel shows "system lock" / "pc connection" (seen by user, 18 Nov 13:10) | 00*8 | `00 c1 00*6` (D0 = model id) | captures/doc6_visual_mute_all.log |
 | 0x0f | disconnect | 00*8 | echo | captures/doc1_reads.log |
 | 0x22 | read version (doc) | 00*8 | echo, all zero: no version returned (contradicts doc) | captures/doc1_reads.log |
 | 0x17 | read memory (read-state) | D0:D1 = 16-bit byte address, rest 0 (doc's adr8/Len ignored) | D0:D1 = address echo, D2..D5 = 4 data bytes | captures/doc2_read_layout.log |
