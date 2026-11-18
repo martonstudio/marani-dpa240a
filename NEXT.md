@@ -1,12 +1,7 @@
 # NEXT
 
 ## App (user asked for it on 18 Nov; this overrides CLAUDE.md's "do not start on any app")
-Surface dashboard, zero install (Surface has PowerShell 5.1 + .NET 4, no Python/Node):
-- `tools/app/server.ps1`: HttpListener on http://localhost:8240/, owns COM5 (connect on start, disconnect on exit and on any error, finally block), endpoints: GET /state (0x17 reads 0x0000-0x015F, decoded with the PLAN.md scales), POST /set {cmd, chn, values} restricted to the verified commands 0x01 0x02 0x03 0x04 0x05 0x07 0x08 0x09 (never 0x28 0x18 0x10 0x24, never 0x17 at 0x2000+), re-read the affected bytes after each set and return them.
-- `tools/app/index.html`: one page, inputs A/B and outputs 1-4 as columns: mute, source, gain, delay, phase, limiter, HPF/LPF, 7 PEQ bands (5 on inputs) with real units from PLAN.md. Every control shows the value read back from the unit, not the value sent.
-- Desktop shortcut `.bat` that starts the server (hidden) and opens Edge; closing the page or the server sends disconnect.
-- Milestones: (1) server /state against the real unit, compare with `dpa240a.py state`; (2) /set for one parameter with read-back; (3) full page; (4) shortcut. Commit each.
-- Known gaps the UI must show as read-only or absent: EQ filter type, names, input select, meters, presets.
+Build to `plans/APP_PLAN.md` (web codebase in layers: transport / protocol / device definition / model / presets / UI; Web Serial on the Surface first). Start with milestone 1 and commit per milestone.
 
 ## Protocol gaps (can run between app milestones)
 0. EQ filter type: ask the user whether the panel's PEQ page offers a Type setting on this V1.05 firmware. If yes, try the type value in 0x05 D1/D2/D4 and diff the full 8 KB; if no, bell-only is a firmware fact.
