@@ -1,0 +1,37 @@
+connect RX f0 c1 00 00 c1 00 00 00 00 00 00 00 f7
+== routeD1
+  set     TX f0 c1 00 08 02 01 00 00 00 00 00 00 f7 RX f0 c1 00 08 02 01 00 00 00 00 00 00 f7
+  diff    none
+  restore TX f0 c1 00 08 02 00 00 00 00 00 00 00 f7 RX f0 c1 00 08 02 00 00 00 00 00 00 00 f7
+  residue none
+== routeD2
+  set     TX f0 c1 00 08 02 00 01 00 00 00 00 00 f7 RX f0 c1 00 08 02 00 01 00 00 00 00 00 f7
+  diff    none
+  restore TX f0 c1 00 08 02 00 00 00 00 00 00 00 f7 RX f0 c1 00 08 02 00 00 00 00 00 00 00 f7
+  residue none
+== routeD3
+  set     TX f0 c1 00 08 02 00 00 01 00 00 00 00 f7 RX f0 c1 00 08 02 00 00 01 00 00 00 00 f7
+  diff    none
+  restore TX f0 c1 00 08 02 00 00 00 00 00 00 00 f7 RX f0 c1 00 08 02 00 00 00 00 00 00 00 f7
+  residue none
+== routeD4
+  set     TX f0 c1 00 08 02 00 00 00 01 00 00 00 f7 RX f0 c1 00 08 02 00 00 00 01 00 00 00 f7
+  diff    none
+  restore TX f0 c1 00 08 02 00 00 00 00 00 00 00 f7 RX f0 c1 00 08 02 00 00 00 00 00 00 00 f7
+  residue none
+== routeD5
+  set     TX f0 c1 00 08 02 00 00 00 00 01 00 00 f7 RX f0 c1 00 08 02 00 00 00 00 01 00 00 f7
+  diff    none
+  restore TX f0 c1 00 08 02 00 00 00 00 00 00 00 f7 RX f0 c1 00 08 02 00 00 00 00 00 00 00 f7
+  residue none
+== routeD6
+  set     TX f0 c1 00 08 02 00 00 00 00 00 01 00 f7 RX f0 c1 00 08 02 00 00 00 00 00 01 00 f7
+  diff    none
+  restore TX f0 c1 00 08 02 00 00 00 00 00 00 00 f7 RX f0 c1 00 08 02 00 00 00 00 00 00 00 f7
+  residue none
+== routeD7
+  set     TX f0 c1 00 08 02 00 00 00 00 00 00 01 f7 RX f0 c1 00 08 02 00 00 00 00 00 00 01 f7
+  diff    0066:00->01
+  restore TX f0 c1 00 08 02 00 00 00 00 00 00 00 f7 RX f0 c1 00 08 02 00 00 00 00 00 00 00 f7
+  residue none
+disconnect RX f0 c1 00 0f 00 00 00 00 00 00 00 00 f7
