@@ -23,7 +23,15 @@ class Bridge
 
     static void Log(string s)
     {
-        lock (logLock) { File.AppendAllText(LogPath, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff ") + s + "\r\n"); }
+        // never throws: Log is called from error handlers on background threads, where a second exception ends the process
+        lock (logLock)
+        {
+            for (int i = 0; i < 3; i++)
+            {
+                try { File.AppendAllText(LogPath, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff ") + s + "\r\n"); return; }
+                catch { Thread.Sleep(20); }
+            }
+        }
     }
 
     static int Main(string[] a)
@@ -33,6 +41,10 @@ class Bridge
         Com = a.Length > 2 ? a[2] : "COM5";
         Baud = a.Length > 3 ? int.Parse(a[3]) : 9600;
         LogPath = Path.Combine(Path.GetDirectoryName(Root), "bridge.log");
+        // leave a trace if anything kills the process (18 Nov: it ended once with no log line)
+        AppDomain.CurrentDomain.UnhandledException += (s, e) => { try { Log("FATAL unhandled: " + e.ExceptionObject); } catch { } };
+        TaskScheduler.UnobservedTaskException += (s, e) => { try { Log("unobserved task error: " + e.Exception.GetBaseException().Message); e.SetObserved(); } catch { } };
+        AppDomain.CurrentDomain.ProcessExit += (s, e) => { try { Log("process exit"); } catch { } };
         var l = new HttpListener();
         l.Prefixes.Add("http://localhost:" + Port + "/");
         l.Prefixes.Add("http://127.0.0.1:" + Port + "/");
@@ -40,7 +52,9 @@ class Bridge
         Log("listening on " + Port + " root " + Root + " serial " + Com + " " + Baud);
         while (true)
         {
-            var ctx = l.GetContext();
+            HttpListenerContext ctx;
+            try { ctx = l.GetContext(); }
+            catch (Exception e) { Log("GetContext failed: " + e.Message); Thread.Sleep(200); continue; }
             ThreadPool.QueueUserWorkItem(_ => { try { Handle(ctx); } catch (Exception e) { Log("handler error " + e.Message); try { ctx.Response.Abort(); } catch { } } });
         }
     }
