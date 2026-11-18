@@ -19,8 +19,10 @@ Candidate map: `vendor/DPA480P_SerialProtocol.pdf`. Rows below are verified agai
 | 0x0f | disconnect | 00*8 | echo | captures/doc1_reads.log |
 | 0x22 | read version (doc) | 00*8 | echo, all zero: no version returned (contradicts doc) | captures/doc1_reads.log |
 | 0x17 | read memory (read-state) | D0:D1 = 16-bit byte address, rest 0 (doc's adr8/Len ignored) | D0:D1 = address echo, D2..D5 = 4 data bytes | captures/doc2_read_layout.log |
+| 0x09 | mute (doc): chn 4 tried | `04 00*6 <1/0>` | echo of TX for mute on and off; no change in 0x0000-0x0FFF (stored presets, not live state); audible/panel effect not observed | captures/doc5_mute_out1.log |
 
 ## Constraints
+- Memory 0x0000-0x0FFF (backup `captures/mem_before.bin`, 18 Nov after power-cycle) is stored-preset memory, not live state: header 0x0000 holds the current/last preset name "Coax8 3emory", preset name list at 0x180 (16-byte names: PA-2W 2.25K, PartyBoost, SUB/HORN, Coax8 3emory, Drum Fill, C8X-stereo, ...thy Memory, Tom15 Twcory), then per-preset blocks with six channels (Low-L, Low-R, High-L, High-R, two blank) each with seven 3-byte EQ bands; 0x0C00-0x0FFF and 0x1000 are 0xFF. Live parameter changes (0x09) do not show up there. Looks like an 8 KB EEPROM (0x2000 is out of range).
 - 0x17 HANGS THE UNIT ABOVE ITS MEMORY: reads at 0x0000-0x1000 answer (0x0000 starts with the ASCII name "Coax8 3emory"); a read at 0x2000 got no reply and the unit then stopped answering everything, disconnect included (18 Nov 11:50, `captures/doc3_read_span.log`). Never read at 0x2000 or above; find the top by stepping up from 0x1000 only after a power-cycle, in small steps. Memory dump script: `tools/surface/dump.ps1` (connect, 0x17 per 4 bytes, guaranteed disconnect).
 - THE UNIT ANSWERS. Settings: 9600 baud, 8N1, DTR/RTS off, 13-byte frames `f0 <id> <dev> <cmd> <8 data bytes> f7`, model id **0xC1**, dev 0 for USB. Verified exchanges (sent from the Surface, COM5):
   - connect: TX `f0 c1 00 00 00 00 00 00 00 00 00 00 f7` -> RX `f0 c1 00 00 c1 00 00 00 00 00 00 00 f7`
