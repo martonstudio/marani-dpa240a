@@ -3,9 +3,8 @@
 ## App
 Milestones 1-5 of `plans/APP_PLAN.md` are built and verified on the unit (see the plan's "State" section). Open items:
 1. Panel check, batched in one timed run with the user: Utility > System > Delay Units = ms, set Out 1 delay to coarse 10 + fine 24 from the app; panel should show 10.5 ms if the derived scale (1 ms + 1/48 ms) is right. Same run: name of crossover slope 8 (set Out 1 HPF slope 8, read the panel), attack index 0 and 29, BW index 0 and 63.
-2. Preset recall from the Edge (Web Serial) page: tested through the bridge page and the CLI, not yet from the USB page. Run a save/recall/diff there via CDP (`tools/surface/edge_app.bat`, tunnel 9222 to 127.0.0.1).
-3. Recall takes ~20 s because push reads the full state twice before and after (verified reads); if that is too slow, read once before and verify only after.
-4. Later: Pi WebSocket bridge (same bridge protocol: "ready" text, binary frames), Capacitor Android build, second device definition.
+2. Recall takes ~20 s because push reads the full state twice before and after (verified reads); if that is too slow, read once before and verify only after.
+3. Later: Pi WebSocket bridge (same bridge protocol: "ready" text, binary frames), Capacitor Android build, second device definition.
 
 ## Protocol gaps (can run between app milestones)
 0. EQ filter type: ask the user whether the panel's PEQ page offers a Type setting on this V1.05 firmware. If yes, try the type value in 0x05 D1/D2/D4 and diff the full 8 KB; if no, bell-only is a firmware fact.
