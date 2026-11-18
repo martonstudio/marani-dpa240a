@@ -19,7 +19,7 @@ Candidate map: `vendor/DPA480P_SerialProtocol.pdf`. Rows below are verified agai
 | 0x0f | disconnect | 00*8 | echo | captures/doc1_reads.log |
 | 0x22 | read version (doc) | 00*8 | echo, all zero: no version returned (contradicts doc) | captures/doc1_reads.log |
 | 0x17 | read memory (read-state) | D0:D1 = 16-bit byte address, rest 0 (doc's adr8/Len ignored) | D0:D1 = address echo, D2..D5 = 4 data bytes | captures/doc2_read_layout.log |
-| 0x09 | mute: verified on the panel (MUTE LEDs). Channel byte D0: 0=In A, 1=In B, 2..5=Out 1..4; 6..11 accepted (echoed) but nothing lights (18 Nov 13:25) | `<chn> 00*6 <1 on/0 off>` | echo of TX | captures/doc6_visual_mute_all.log, captures/doc7_channel_map.log |
+| 0x09 | mute: verified on the panel (MUTE LEDs). Channel byte D0: 0=In A, 1=In B, 2..5=Out 1..4; 6..11: user saw all MUTE LEDs turn on and off at each of these steps (mute-all behaviour, user report 18 Nov 13:25; avoid 6..11) | `<chn> 00*6 <1 on/0 off>` | echo of TX | captures/doc6_visual_mute_all.log, captures/doc7_channel_map.log |
 
 ## Constraints
 - Memory 0x0000-0x0FFF (backup `captures/mem_before.bin`, 18 Nov after power-cycle) is stored-preset memory, not live state: header 0x0000 holds the current/last preset name "Coax8 3emory", preset name list at 0x180 (16-byte names: PA-2W 2.25K, PartyBoost, SUB/HORN, Coax8 3emory, Drum Fill, C8X-stereo, ...thy Memory, Tom15 Twcory), then per-preset blocks with six channels (Low-L, Low-R, High-L, High-R, two blank) each with seven 3-byte EQ bands; 0x0C00-0x0FFF and 0x1000 are 0xFF. Live parameter changes (0x09) do not show up there. Looks like an 8 KB EEPROM (0x2000 is out of range).
