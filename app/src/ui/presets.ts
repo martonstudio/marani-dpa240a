@@ -156,7 +156,7 @@ export function presetSidebar(ctx: Ctx, store: PresetStore, setBusy: (busy: bool
   const el = h(
     "aside",
     { class: "presets", testid: "presets" },
-    h("h2", {}, "Presets", h("small", {}, " stored in this browser")),
+    h("p", { class: "drawer-note" }, "App presets are stored in this browser. Recall pushes every changed value to the unit and reads the state back."),
     h("div", { class: "row" }, saveBtn, importBtn, fileIn),
     list,
     sel,

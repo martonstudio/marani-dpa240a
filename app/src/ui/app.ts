@@ -9,10 +9,10 @@ import type { DeviceModel } from "../model/store.ts";
 import type { PresetStore } from "../presets/types.ts";
 import { h } from "./dom.ts";
 import { Ctx } from "./ctx.ts";
-import { channelStrip } from "./strip.ts";
-import { detailPanel } from "./detail.ts";
+import { channelView } from "./channel.ts";
 import { presetSidebar } from "./presets.ts";
 import { logPanel } from "./log.ts";
+import { drawer } from "./drawer.ts";
 
 export type ConnState = "disconnected" | "connecting" | "loading" | "connected" | "lost" | "error";
 type Kind = "usb" | "bridge" | "sim";
@@ -45,8 +45,8 @@ export class App {
   private loadFill: HTMLElement;
   private toastEl: HTMLElement;
   private presetNameEl: HTMLElement;
-  private details = new Map<string, HTMLElement>();
-  private strips = new Map<string, HTMLElement>();
+  private views = new Map<string, { side: HTMLElement; center: HTMLElement }>();
+  private chanBtns = new Map<string, HTMLElement>();
   private presets: ReturnType<typeof presetSidebar>;
   private logp = logPanel();
   private main: HTMLElement;
@@ -76,36 +76,79 @@ export class App {
     this.loadBar = h("div", { class: "load-bar", testid: "load-progress", hidden: true }, this.loadFill);
     this.toastEl = h("div", { class: "toast", testid: "toast", hidden: true });
 
-    const header = h(
-      "header",
-      { class: "topbar" },
-      h("div", { class: "brand" }, h("span", { class: "logo" }, "DPA"), h("span", { class: "brand-name" }, "DPA Control")),
-      h("div", { class: "unit" }, h("span", { class: "unit-name", testid: "device-name" }, dev.name), this.presetNameEl),
-      h("div", { class: "conn" }, this.kindSel, this.urlIn, this.connectBtn, this.statusEl),
-    );
+    // channel selector (header centre)
+    const chanRow = h("div", { class: "chan-row", role: "tablist", "aria-label": "Channel" });
+    for (const ch of dev.channels) {
+      const nameF = ch.fields.find((x) => x.scale.kind === "text");
+      const muteF = ch.fields.find((x) => x.key === "mute");
+      const sub = h("span", { class: "chan-sub" }, ch.kind === "input" ? "input" : "");
+      const badge = h("span", { class: "chan-muted", hidden: true }, "MUTED");
+      if (nameF) this.ctx.bind(ch, nameF, (_r, t) => (sub.textContent = t || "\u2014"));
+      if (muteF) this.ctx.bind(ch, muteF, (raw) => (badge.hidden = !raw));
+      const b = h("button", { class: `chan-btn chan-${ch.kind}`, role: "tab", testid: `chan-${ch.id}`, "aria-selected": "false", onclick: () => this.select(ch) }, h("span", { class: "chan-top" }, h("span", { class: "chan-name" }, ch.name), badge), sub);
+      this.chanBtns.set(ch.id, b);
+      chanRow.append(b);
+    }
+    const step = (d: number) => {
+      const i = dev.channels.findIndex((c) => c.id === this.selectedChannel);
+      this.select(dev.channels[(i + d + dev.channels.length) % dev.channels.length]);
+    };
+    const prev = h("button", { class: "chan-step", testid: "chan-prev", "aria-label": "Previous channel", onclick: () => step(-1) }, "\u2039");
+    const next = h("button", { class: "chan-step", testid: "chan-next", "aria-label": "Next channel", onclick: () => step(1) }, "\u203a");
 
-    const stripsEl = h("div", { class: "strips", style: `--nch:${dev.channels.length}` });
-    for (const ch of dev.channels) {
-      const st = channelStrip(this.ctx, ch, (c) => this.select(c));
-      this.strips.set(ch.id, st);
-      stripsEl.append(st);
-    }
-    const detailsEl = h("div", { class: "details" });
-    for (const ch of dev.channels) {
-      const d = detailPanel(this.ctx, ch);
-      this.details.set(ch.id, d);
-      detailsEl.append(d);
-    }
     const g = dev.globals.find((x) => x.scale.kind === "text");
     this.ctx.onMem((mem) => (this.presetNameEl.textContent = g ? readText(dev, mem, g) : ""));
 
     this.presets = presetSidebar(this.ctx, presetStore, (busy, why) => {
       document.body.classList.toggle("busy", busy);
-      if (busy && why) this.setStatus("connected", why + "…");
+      if (busy && why) this.setStatus("connected", why + "\u2026");
       else if (!busy && this.state === "connected") this.setStatus("connected");
     });
-    this.main = h("main", { class: "layout offline" }, h("div", { class: "workspace" }, stripsEl, detailsEl), this.presets.el);
-    root.append(header, this.loadBar, this.main, this.logp.el, this.toastEl);
+    const presetDrawer = drawer("Presets", "presets-drawer", this.presets.el);
+    const logDrawer = drawer("Frame log", "log-drawer", this.logp.el);
+    const presetsBtn = h("button", { class: "btn", testid: "open-presets", onclick: () => (logDrawer.close(), presetDrawer.open()) }, "Presets");
+    const logBtn = h("button", { class: "btn", testid: "open-log", onclick: () => (presetDrawer.close(), logDrawer.open()) }, "Log");
+
+    const header = h(
+      "header",
+      { class: "topbar" },
+      h(
+        "div",
+        { class: "tb-left" },
+        h("div", { class: "brand" }, h("span", { class: "brand-name" }, "DPA Control"), h("span", { class: "unit-line" }, h("span", { class: "unit-name", testid: "device-name" }, dev.name), this.presetNameEl)),
+        presetsBtn,
+      ),
+      h("div", { class: "tb-center" }, prev, chanRow, next),
+      h("div", { class: "tb-right" }, this.kindSel, this.urlIn, this.connectBtn, this.statusEl, logBtn),
+      this.loadBar,
+    );
+
+    // drawers open below the header so its controls (Disconnect, channel buttons) stay reachable
+    const setTop = () => document.documentElement.style.setProperty("--topbar-h", `${header.offsetHeight}px`);
+    new ResizeObserver(setTop).observe(header);
+
+    const sides = h("div", { class: "sides" });
+    const centers = h("div", { class: "centers" });
+    for (const ch of dev.channels) {
+      const v = channelView(this.ctx, ch);
+      this.views.set(ch.id, v);
+      sides.append(v.side);
+      centers.append(v.center);
+    }
+    this.main = h("main", { class: "layout offline" }, sides, centers);
+    // swipe left/right on the main area (not on controls) steps channels
+    let sw: { x: number; y: number; id: number } | null = null;
+    this.main.addEventListener("pointerdown", (e) => {
+      const t = e.target as Element;
+      sw = t.closest(".df, .vf, .eq-handle, button, select, input, .seg") ? null : { x: e.clientX, y: e.clientY, id: e.pointerId };
+    });
+    this.main.addEventListener("pointerup", (e) => {
+      if (!sw || sw.id !== e.pointerId) return;
+      const dx = e.clientX - sw.x, dy = e.clientY - sw.y;
+      sw = null;
+      if (e.pointerType !== "mouse" && Math.abs(dx) > 90 && Math.abs(dy) < 40) step(dx < 0 ? 1 : -1);
+    });
+    root.append(header, this.main, presetDrawer.el, logDrawer.el, this.toastEl);
     void this.presets.refresh();
     this.select(dev.channels.find((c) => c.kind === "output") ?? dev.channels[0]);
 
@@ -122,8 +165,12 @@ export class App {
 
   select(ch: ChannelDef): void {
     this.selectedChannel = ch.id;
-    for (const [id, d] of this.details) d.hidden = id !== ch.id;
-    for (const [id, s] of this.strips) s.classList.toggle("selected", id === ch.id);
+    for (const [id, v] of this.views) v.side.hidden = v.center.hidden = id !== ch.id;
+    for (const [id, b] of this.chanBtns) {
+      b.classList.toggle("selected", id === ch.id);
+      b.setAttribute("aria-selected", String(id === ch.id));
+    }
+    this.ctx.renderAll();
   }
 
   private setStatus(st: ConnState, text?: string): void {
@@ -137,7 +184,11 @@ export class App {
     this.connectBtn.textContent = live ? "Disconnect" : "Connect";
     this.connectBtn.classList.toggle("primary", !live);
     this.connectBtn.disabled = st === "connecting" || st === "loading";
-    this.kindSel.disabled = this.urlIn.disabled = st !== "disconnected" && st !== "lost" && st !== "error";
+    const idle = st === "disconnected" || st === "lost" || st === "error";
+    this.kindSel.disabled = this.urlIn.disabled = !idle;
+    this.kindSel.hidden = !idle;
+    this.urlIn.hidden = !idle || this.kindSel.value !== "bridge";
+    if (live && !text) this.statusEl.textContent = `${this.kindSel.selectedOptions[0]?.textContent ?? ""} \u00b7 connected`;
     this.presets.setConnected(live);
   }
 

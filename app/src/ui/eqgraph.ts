@@ -1,29 +1,70 @@
-import type { ChannelDef } from "../devices/types.ts";
+import type { ChannelDef, Field } from "../devices/types.ts";
 import { fromPhysical, physical, readField } from "../devices/logic.ts";
 import { clear, h, s } from "./dom.ts";
 import type { Ctx } from "./ctx.ts";
-import { eqShape, peakingDb, resolveEq, responseDb } from "./eq.ts";
+import { eqShape, passDb, peakingDb, resolveEq, responseDb } from "./eq.ts";
 
 const F_MIN = 20, F_MAX = 20000, DB = 15;
-const M = { l: 40, r: 12, t: 12, b: 24 };
+const M = { l: 34, r: 10, t: 10, b: 20 };
+export const BAND_COLORS = ["#ff6b6b", "#ffa94d", "#ffd43b", "#69db7c", "#38d9a9", "#4dabf7", "#b197fc", "#f783ac"];
+export const XOVER_COLOR = "#9aa7b8";
+
+/** Which band (group key: "peq3", "hpf", "lpf") is selected in a channel view; shared by graph and table. */
+export class BandSel {
+  private cbs: ((g: string | null) => void)[] = [];
+  value: string | null = null;
+  set(g: string | null) {
+    this.value = g;
+    for (const c of this.cbs) c(g);
+  }
+  on(cb: (g: string | null) => void) {
+    this.cbs.push(cb);
+  }
+}
+
+interface HandleDef {
+  group: string;
+  label: string;
+  color: string;
+  freq: Field;
+  gain?: Field; // absent for HPF/LPF (drag moves frequency only)
+}
 
 /**
- * SVG EQ graph for one channel: combined response (PEQ bells + HPF/LPF), draggable band handles
- * (x = frequency, y = gain; wheel = bandwidth). The curve and the handles at rest come from the read-back image.
+ * Response graph: combined curve, each PEQ band as its own translucent filled area, HPF/LPF skirts, numbered handles.
+ * Handles sitting on the same spot are fanned out so each can be grabbed. Tap selects, drag moves (relative, no jump).
+ * Everything drawn at rest comes from the read-back image.
  */
-export function eqGraph(ctx: Ctx, ch: ChannelDef, onPick: (group: string) => void): { el: HTMLElement; select(group: string | null): void } {
+export function eqGraph(ctx: Ctx, ch: ChannelDef, sel: BandSel): HTMLElement {
   const shape = eqShape(ch);
-  const svg = s("svg", { class: "eq-svg", testid: `eq-${ch.id}`, role: "img", "aria-label": `${ch.name} EQ response` });
-  const el = h("div", { class: "eq-graph" }, svg, h("div", { class: "eq-note", title: "Filter shapes and the bandwidth scale are approximations (BW index -> 0.05*(idx-3) oct); the unit's exact curves are not measured." }, "approximate"));
+  const handles: HandleDef[] = shape.bands.map((b, i) => ({ group: b.group, label: String(i + 1), color: BAND_COLORS[i % BAND_COLORS.length], freq: b.freqField, gain: b.gainField }));
+  if (shape.hpf) handles.unshift({ group: "hpf", label: "H", color: XOVER_COLOR, freq: shape.hpf.freq });
+  if (shape.lpf) handles.push({ group: "lpf", label: "L", color: XOVER_COLOR, freq: shape.lpf.freq });
+  const svg = s("svg", { class: "eq-svg", testid: `eq-${ch.id}`, role: "img", "aria-label": `${ch.name} response` });
+  const el = h(
+    "div",
+    { class: "eq-graph" },
+    svg,
+    h("div", { class: "eq-note", title: "Filter shapes and the bandwidth scale are approximations (BW index -> 0.05*(idx-3) oct; BS drawn as Butterworth); the unit's exact curves are not measured." }, "approximate"),
+  );
   let W = 800, H = 300;
-  let selected: string | null = null;
-  const drag = new Map<string, { idxF: number; idxG: number; until: number }>(); // pending positions while dragging
+  const drag = new Map<string, { f: number; g: number; until: number }>();
 
   const pw = () => W - M.l - M.r, ph = () => H - M.t - M.b;
   const xOf = (f: number) => M.l + (Math.log10(f / F_MIN) / Math.log10(F_MAX / F_MIN)) * pw();
   const fOf = (x: number) => F_MIN * Math.pow(F_MAX / F_MIN, (x - M.l) / pw());
-  const yOf = (db: number) => M.t + ((DB - Math.max(-DB - 3, Math.min(DB + 3, db))) / (2 * DB)) * ph();
+  const yOf = (db: number) => M.t + ((DB - Math.max(-DB - 4, Math.min(DB + 4, db))) / (2 * DB)) * ph();
   const dbOf = (y: number) => DB - ((y - M.t) / ph()) * 2 * DB;
+  const N = 200;
+  const freqs = Array.from({ length: N + 1 }, (_, i) => F_MIN * Math.pow(F_MAX / F_MIN, i / N));
+  const path = (fn: (f: number) => number) => freqs.map((f) => `${xOf(f).toFixed(1)},${yOf(fn(f)).toFixed(1)}`).join(" ");
+  const area = (fn: (f: number) => number) => `${xOf(F_MIN)},${yOf(0)} ${path(fn)} ${xOf(F_MAX)},${yOf(0)}`;
+
+  /** Field values, or the pending drag position. */
+  const valuesOf = (hd: HandleDef, mem: Uint8Array) => {
+    const d = drag.get(hd.group);
+    return { f: d ? d.f : readField(ctx.dev, mem, hd.freq), g: d ? d.g : hd.gain ? readField(ctx.dev, mem, hd.gain) : fromPhysical(hd.freq, 0) };
+  };
 
   function draw() {
     const mem = ctx.model?.mem;
@@ -37,88 +78,86 @@ export function eqGraph(ctx: Ctx, ch: ChannelDef, onPick: (group: string) => voi
     for (const f of [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]) {
       const x = xOf(f);
       grid.append(s("line", { x1: x, x2: x, y1: M.t, y2: M.t + ph() }));
-      grid.append(s("text", { x, y: H - 6, "text-anchor": "middle" }, f >= 1000 ? `${f / 1000}k` : String(f)));
+      grid.append(s("text", { x: Math.min(Math.max(x, M.l + 8), W - M.r - 10), y: H - 5, "text-anchor": "middle" }, f >= 1000 ? `${f / 1000}k` : String(f)));
     }
     for (let db = -DB; db <= DB; db += 5) {
       const y = yOf(db);
       grid.append(s("line", { x1: M.l, x2: M.l + pw(), y1: y, y2: y, class: db === 0 ? "zero" : "" }));
-      grid.append(s("text", { x: M.l - 6, y: y + 4, "text-anchor": "end" }, db > 0 ? `+${db}` : String(db)));
+      grid.append(s("text", { x: M.l - 5, y: y + 4, "text-anchor": "end" }, db > 0 ? `+${db}` : String(db)));
     }
     svg.append(grid);
     if (!mem) return;
     const eq = resolveEq(ctx.dev, mem, shape);
-    const N = 240;
-    const pts: string[] = [];
-    for (let i = 0; i <= N; i++) {
-      const f = F_MIN * Math.pow(F_MAX / F_MIN, i / N);
-      pts.push(`${xOf(f).toFixed(1)},${yOf(responseDb(eq, f)).toFixed(1)}`);
-    }
     const g = s("g", { "clip-path": `url(#${clipId})` });
-    // selected band's own curve
-    const si = shape.bands.findIndex((b) => b.group === selected);
-    if (si >= 0) {
-      const b = eq.bands[si];
-      const bp: string[] = [];
-      for (let i = 0; i <= N; i++) {
-        const f = F_MIN * Math.pow(F_MAX / F_MIN, i / N);
-        bp.push(`${xOf(f).toFixed(1)},${yOf(peakingDb(f, b.f0, b.gain, b.bwOct)).toFixed(1)}`);
-      }
-      g.append(s("polyline", { points: bp.join(" "), class: "eq-band-curve" }));
-    }
-    g.append(s("polygon", { points: `${M.l},${yOf(0)} ${pts.join(" ")} ${M.l + pw()},${yOf(0)}`, class: "eq-fill" }));
-    g.append(s("polyline", { points: pts.join(" "), class: "eq-curve", testid: `eq-${ch.id}-curve` }));
-    for (const [k, p] of [["HPF", eq.hpf], ["LPF", eq.lpf]] as const)
-      if (p && p.slope.family !== "off") {
-        const x = xOf(p.fc);
-        g.append(s("line", { x1: x, x2: x, y1: M.t, y2: M.t + ph(), class: "eq-xover" }));
-        g.append(s("text", { x: x + (k === "HPF" ? 4 : -4), y: M.t + 12, class: "eq-xover-label", "text-anchor": k === "HPF" ? "start" : "end" }, k + (p.slope.unknown ? " (shape unknown)" : "")));
-      }
-    svg.append(g);
-    // handles: band 1 on top when they overlap (all flat bands sit on one spot), the selected band above all
-    const order = shape.bands.map((b, i) => [b, i] as const).reverse();
-    order.sort((a, b) => Number(a[0].group === selected) - Number(b[0].group === selected));
-    order.forEach(([b, i]) => {
-      const pend = drag.get(b.group);
-      const fi = pend ? pend.idxF : readField(ctx.dev, mem, b.freqField);
-      const gi = pend ? pend.idxG : readField(ctx.dev, mem, b.gainField);
-      const x = xOf(physical(b.freqField, fi)), y = yOf(physical(b.gainField, gi));
-      const hnd = s(
-        "g",
-        { class: `eq-handle${b.group === selected ? " sel" : ""}${gi !== fromPhysical(b.gainField, 0) ? " active" : ""}`, transform: `translate(${x},${y})`, testid: `eq-handle-${ch.id}-${b.group}`, "data-band": b.group },
-        s("circle", { r: 22, class: "hit" }),
-        s("circle", { r: 11, class: "dot" }),
-        s("text", { y: 4, "text-anchor": "middle" }, String(i + 1)),
-      );
-      hnd.addEventListener("pointerdown", (e) => startDrag(e as PointerEvent, b));
-      hnd.addEventListener("wheel", (e) => {
-        e.preventDefault();
-        const cur = readField(ctx.dev, mem, b.bwField);
-        ctx.editLatest(ch, b.bwField.key, Math.max(b.bwField.min, Math.min(b.bwField.max, cur + ((e as WheelEvent).deltaY > 0 ? 1 : -1))));
-      });
-      svg.append(hnd);
+    const selected = sel.value;
+    // crossover skirts
+    for (const [k, p] of [["hpf", eq.hpf], ["lpf", eq.lpf]] as const)
+      if (p && p.slope.family !== "off")
+        g.append(s("polygon", { points: area((f) => passDb(f, p.fc, p.slope, k)), class: `eq-skirt${selected === k ? " sel" : ""}` }));
+    // each PEQ band as its own translucent area
+    eq.bands.forEach((b, i) => {
+      if (b.gain === 0) return;
+      const col = BAND_COLORS[i % BAND_COLORS.length];
+      const isSel = selected === shape.bands[i].group;
+      g.append(s("polygon", { points: area((f) => peakingDb(f, b.f0, b.gain, b.bwOct)), fill: col, "fill-opacity": isSel ? 0.32 : 0.16, stroke: col, "stroke-opacity": isSel ? 0.9 : 0.45, "stroke-width": isSel ? 1.5 : 1 }));
     });
+    g.append(s("polyline", { points: path((f) => responseDb(eq, f)), class: "eq-curve", testid: `eq-${ch.id}-curve` }));
+    svg.append(g);
+
+    // handles: true positions, then fan out the ones that sit on the same spot
+    const pts = handles.map((hd) => {
+      const v = valuesOf(hd, mem);
+      return { hd, x: xOf(physical(hd.freq, v.f)), y: hd.gain ? yOf(physical(hd.gain, v.g)) : yOf(0), dx: 0 };
+    });
+    const groups: (typeof pts)[] = [];
+    for (const p of pts) {
+      const grp = groups.find((gr) => Math.abs(gr[0].x - p.x) < 16 && Math.abs(gr[0].y - p.y) < 16);
+      if (grp) grp.push(p);
+      else groups.push([p]);
+    }
+    for (const grp of groups) if (grp.length > 1) grp.forEach((p, k) => (p.dx = (k - (grp.length - 1) / 2) * 22));
+    const order = [...pts].sort((a, b) => Number(a.hd.group === selected) - Number(b.hd.group === selected));
+    for (const p of order) {
+      const hd = p.hd;
+      const isSel = hd.group === selected;
+      const node = s(
+        "g",
+        { class: `eq-handle${isSel ? " sel" : ""}${hd.gain ? "" : " xover"}`, transform: `translate(${(p.x + p.dx).toFixed(1)},${p.y.toFixed(1)})`, testid: `eq-handle-${ch.id}-${hd.group}`, "data-band": hd.group },
+        p.dx ? s("line", { x1: 0, y1: 0, x2: -p.dx, y2: 0, class: "eq-leader" }) : null,
+        s("circle", { r: 18, class: "hit" }),
+        s("circle", { r: isSel ? 12 : 10, class: "dot", fill: isSel ? hd.color : "#141920", stroke: hd.color }),
+        s("text", { y: 4, "text-anchor": "middle", fill: isSel ? "#10141a" : hd.color }, hd.label),
+      );
+      node.addEventListener("pointerdown", (e) => startDrag(e as PointerEvent, hd));
+      svg.append(node);
+    }
   }
 
-  function startDrag(e: PointerEvent, b: (typeof shape.bands)[number]) {
+  function startDrag(e: PointerEvent, hd: HandleDef) {
     e.preventDefault();
-    selected = b.group;
-    onPick(b.group);
-    // capture on the svg: draw() replaces the handle elements, the svg stays
+    e.stopPropagation();
+    sel.set(hd.group);
+    const mem = ctx.model?.mem;
+    if (!mem) return;
     svg.setPointerCapture(e.pointerId);
-    const toLocal = (ev: PointerEvent) => {
-      const r = svg.getBoundingClientRect();
-      return { x: ((ev.clientX - r.left) / r.width) * W, y: ((ev.clientY - r.top) / r.height) * H };
-    };
+    const r0 = svg.getBoundingClientRect();
+    const sx = (W / r0.width), sy = (H / r0.height);
+    const v0 = valuesOf(hd, mem);
+    const x0 = xOf(physical(hd.freq, v0.f)), y0 = hd.gain ? yOf(physical(hd.gain, v0.g)) : yOf(0);
+    const px0 = e.clientX, py0 = e.clientY;
+    let moved = false;
     const move = (ev: PointerEvent) => {
       if (ev.pointerId !== e.pointerId) return;
-      const p = toLocal(ev);
-      const idxF = fromPhysical(b.freqField, Math.max(F_MIN, Math.min(F_MAX * 1.03, fOf(p.x))));
-      const idxG = fromPhysical(b.gainField, Math.max(-DB, Math.min(DB, dbOf(p.y))));
-      const prev = drag.get(b.group);
-      if (prev && prev.idxF === idxF && prev.idxG === idxG) return;
-      drag.set(b.group, { idxF, idxG, until: Infinity });
-      ctx.editLatest(ch, b.freqField.key, idxF);
-      ctx.editLatest(ch, b.gainField.key, idxG);
+      const dx = (ev.clientX - px0) * sx, dy = (ev.clientY - py0) * sy;
+      if (!moved && Math.hypot(dx, dy) < 4) return;
+      moved = true;
+      const f = fromPhysical(hd.freq, Math.max(F_MIN, Math.min(F_MAX * 1.03, fOf(x0 + dx))));
+      const gv = hd.gain ? fromPhysical(hd.gain, Math.max(-DB, Math.min(DB, dbOf(y0 + dy)))) : v0.g;
+      const prev = drag.get(hd.group);
+      if (prev && prev.f === f && prev.g === gv) return;
+      drag.set(hd.group, { f, g: gv, until: Infinity });
+      ctx.editLatest(ch, hd.freq.key, f);
+      if (hd.gain) ctx.editLatest(ch, hd.gain.key, gv);
       draw();
     };
     const up = (ev: PointerEvent) => {
@@ -126,42 +165,34 @@ export function eqGraph(ctx: Ctx, ch: ChannelDef, onPick: (group: string) => voi
       svg.removeEventListener("pointermove", move);
       svg.removeEventListener("pointerup", up);
       svg.removeEventListener("pointercancel", up);
-      const d = drag.get(b.group);
-      if (d) d.until = Date.now() + 1500;
+      const d = drag.get(hd.group);
+      if (!d) return;
+      d.until = Date.now() + 1500;
       setTimeout(() => {
-        if (drag.get(b.group)?.until !== Infinity) drag.delete(b.group);
+        if (drag.get(hd.group)?.until !== Infinity) drag.delete(hd.group);
         draw();
       }, 1500);
     };
     svg.addEventListener("pointermove", move);
     svg.addEventListener("pointerup", up);
     svg.addEventListener("pointercancel", up);
-    draw();
   }
 
-  ctx.onMem(() => {
-    // read-back arrived: a pending drag position is dropped once the unit holds it
-    const mem = ctx.model?.mem;
-    if (mem)
-      for (const b of shape.bands) {
-        const d = drag.get(b.group);
-        if (d && d.until !== Infinity && readField(ctx.dev, mem, b.freqField) === d.idxF && readField(ctx.dev, mem, b.gainField) === d.idxG) drag.delete(b.group);
-      }
-    draw();
+  ctx.onMem((mem) => {
+    for (const hd of handles) {
+      const d = drag.get(hd.group);
+      if (d && d.until !== Infinity && readField(ctx.dev, mem, hd.freq) === d.f && (!hd.gain || readField(ctx.dev, mem, hd.gain) === d.g)) drag.delete(hd.group);
+    }
+    if (el.offsetParent !== null) draw();
   });
+  sel.on(() => draw());
   new ResizeObserver(() => {
     const r = el.getBoundingClientRect();
-    if (r.width < 10) return;
+    if (r.width < 10 || r.height < 10) return;
     W = Math.round(r.width);
-    H = Math.max(200, Math.min(340, Math.round(W * 0.32)));
+    H = Math.round(r.height);
     draw();
   }).observe(el);
   draw();
-  return {
-    el,
-    select(g) {
-      selected = g;
-      draw();
-    },
-  };
+  return el;
 }
