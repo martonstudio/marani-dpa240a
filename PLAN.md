@@ -11,7 +11,7 @@ An Android app that, plugged into the DPA240A with an OTG cable, reads and sets 
 5. Port to Android (`usb-serial-for-android`, OTG).
 
 ## Command table (DPA240A, id 0xC1, dev 0, 9600 8N1, 13-byte frames `f0 c1 00 <cmd> D0..D7 f7`)
-Candidate map: `vendor/DPA480P_SerialProtocol.pdf`. Rows below are verified against the unit. Channel numbering on this unit (from 0x09): 0=In A, 1=In B, 2..5=Out 1..4 (the document's 4..11 = Out 1..8 does not apply).
+Candidate map: `vendor/DPA480P_SerialProtocol.pdf`. Rows below are verified against the unit. Live memory layout: outputs chn 2..5 at 0x0066 + 0x28*(chn-2): +0 source? (00 InA / 01 InB in the current patch; 0x08 does not change it), +1 gain, +2..+4 limiter, +5..+7 delay, +8 phase, +9..+12 HPF/LPF, +13..+33 seven PEQ bands (freq index, Q, gain), +34..+39 name. Inputs A/B: 19-byte blocks at 0x0040 / 0x0053 (gain, 3 delay bytes, five PEQ bands). Mute mask at 0x0158 (bit n = chn n). Channel numbering on this unit (from 0x09): 0=In A, 1=In B, 2..5=Out 1..4 (the document's 4..11 = Out 1..8 does not apply).
 
 | cmd | meaning | TX data | RX | capture |
 |---|---|---|---|---|
@@ -19,6 +19,14 @@ Candidate map: `vendor/DPA480P_SerialProtocol.pdf`. Rows below are verified agai
 | 0x0f | disconnect | 00*8 | echo | captures/doc1_reads.log |
 | 0x22 | read version (doc) | 00*8 | echo, all zero: no version returned (contradicts doc) | captures/doc1_reads.log |
 | 0x17 | read memory (read-state) | D0:D1 = 16-bit byte address, rest 0 (doc's adr8/Len ignored) | D0:D1 = address echo, D2..D5 = 4 data bytes | captures/doc2_read_layout.log |
+| 0x17 | read memory = read-state | D0:D1 = 16-bit byte address (0x0000-0x1FFF; never 0x2000+), rest 0 | D0:D1 echo, D2..D5 = 4 data bytes. 0x0000-0x015F is the LIVE state (follows every change below) | captures/doc2_read_layout.log, captures/vt1_out1_all.log |
+| 0x01 | gain | `<chn> 00*5 00 <val>` (one byte, 0x78 = Out 1 default) | echo; memory chn byte +1 | captures/vt1_out1_all.log |
+| 0x02 | delay | `<chn> 00*4 <coarseH> <coarseL> <fine>` | echo; memory +5,+6,+7 | captures/vt5_maps.log |
+| 0x03 | phase | `<chn> 00*5 <phase 0/1> <current gain byte>` (D6 = phase; D7 is written into the gain byte, so send the current gain) | echo; memory +8 | captures/vt5_maps.log, captures/vt1_out1_all.log |
+| 0x04 | crossover | `<chn> <0 HPF/1 LPF> 00*3 00 <freq index> <slope>`; freq index = 1/24 octave from 20 Hz (0xF0 = 20 kHz), slope 0 = no cut-off | echo; HPF memory +9,+10, LPF +11,+12 | captures/vt1_out1_all.log |
+| 0x05 | PEQ (EQ) | `<chn> <band 0..6> 00 <type> 00 <freq index> <Q/BW index> <gain 0..60, 30 = 0 dB>`; FreqH ignored, FreqL = 1/24-octave index (0x88 = 1 kHz). Panel showed +3.0 dB and 16.0 kHz for gain 0x24 / index 0xE8 | echo; memory +13+3*band (freq, Q, gain) | captures/doc8_peq_out1.log, captures/vt1_out1_all.log |
+| 0x07 | limiter | `<chn> 00*3 <byp?> <attack 0..29> <release> <threshold 0..150, 150 = +20 dBu>` (D5/D7 swapped vs document; D4 no visible effect) | echo; memory +2 attack, +3 release, +4 threshold | captures/vt5_maps.log |
+| 0x45, 0x06 | relative gain, EQ bypass | as document | no reply: not implemented | captures/vt1_out1_all.log |
 | 0x09 | mute: verified on the panel (MUTE LEDs). Channel byte D0: 0=In A, 1=In B, 2..5=Out 1..4; 6..11: user saw all MUTE LEDs turn on and off at each of these steps (mute-all behaviour, user report 18 Nov 13:25; avoid 6..11) | `<chn> 00*6 <1 on/0 off>` | echo of TX | captures/doc6_visual_mute_all.log, captures/doc7_channel_map.log |
 
 ## Constraints

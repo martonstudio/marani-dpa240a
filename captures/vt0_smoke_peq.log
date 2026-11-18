@@ -1,0 +1,7 @@
+connect RX f0 c1 00 00 c1 00 00 00 00 00 00 00 f7
+== peq1 gain+3
+  set     TX f0 c1 00 05 02 00 00 00 00 88 09 24 f7 RX f0 c1 00 05 02 00 00 00 00 88 09 24 f7
+  diff    0075:1e->24
+  restore TX f0 c1 00 05 02 00 00 00 00 88 09 1e f7 RX f0 c1 00 05 02 00 00 00 00 88 09 1e f7
+  residue none
+disconnect RX f0 c1 00 0f 00 00 00 00 00 00 00 00 f7

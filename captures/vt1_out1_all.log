@@ -1,0 +1,52 @@
+connect RX f0 c1 00 00 c1 00 00 00 00 00 00 00 f7
+== relgain-1dB
+  set     TX f0 c1 00 45 02 00 00 00 00 00 00 0a f7 RX (nothing)
+  diff    none
+  restore TX f0 c1 00 45 02 01 00 00 00 00 00 0a f7 RX (nothing)
+  residue none
+== gain110
+  set     TX f0 c1 00 01 02 00 00 00 00 00 00 6e f7 RX f0 c1 00 01 02 00 00 00 00 00 00 6e f7
+  diff    0067:78->6e
+  restore TX f0 c1 00 01 02 00 00 00 00 00 00 78 f7 RX f0 c1 00 01 02 00 00 00 00 00 00 78 f7
+  residue none
+== delay1
+  set     TX f0 c1 00 02 02 00 00 00 00 00 01 00 f7 RX f0 c1 00 02 02 00 00 00 00 00 01 00 f7
+  diff    006c:00->01
+  restore TX f0 c1 00 02 02 00 00 00 00 00 00 00 f7 RX f0 c1 00 02 02 00 00 00 00 00 00 00 f7
+  residue none
+== phase
+  set     TX f0 c1 00 03 02 00 00 00 00 00 00 01 f7 RX f0 c1 00 03 02 00 00 00 00 00 00 01 f7
+  diff    0067:78->01
+  restore TX f0 c1 00 03 02 00 00 00 00 00 00 00 f7 RX f0 c1 00 03 02 00 00 00 00 00 00 00 f7
+  residue 0067:78->00
+== hpf
+  set     TX f0 c1 00 04 02 00 00 00 00 00 30 02 f7 RX f0 c1 00 04 02 00 00 00 00 00 30 02 f7
+  diff    006f:00->30 0070:00->02
+  restore TX f0 c1 00 04 02 00 00 00 00 00 00 00 f7 RX f0 c1 00 04 02 00 00 00 00 00 00 00 f7
+  residue none
+== lpf
+  set     TX f0 c1 00 04 02 01 00 00 00 00 c0 02 f7 RX f0 c1 00 04 02 01 00 00 00 00 c0 02 f7
+  diff    0071:f0->c0 0072:00->02
+  restore TX f0 c1 00 04 02 01 00 00 00 00 f0 00 f7 RX f0 c1 00 04 02 01 00 00 00 00 f0 00 f7
+  residue none
+== eqbyp
+  set     TX f0 c1 00 06 02 00 00 00 00 00 00 01 f7 RX (nothing)
+  diff    none
+  restore TX f0 c1 00 06 02 00 00 00 00 00 00 00 f7 RX (nothing)
+  residue none
+== limiter
+  set     TX f0 c1 00 07 02 00 00 00 00 64 04 13 f7 RX f0 c1 00 07 02 00 00 00 00 64 04 13 f7
+  diff    0068:13->1d 006a:96->13
+  restore TX f0 c1 00 07 02 00 00 00 00 96 04 13 f7 RX f0 c1 00 07 02 00 00 00 00 96 04 13 f7
+  residue 0068:13->1d 006a:96->13
+== routing
+  set     TX f0 c1 00 08 02 00 00 03 1e 1e 00 00 f7 RX f0 c1 00 08 02 00 00 03 1e 1e 00 00 f7
+  diff    none
+  restore TX f0 c1 00 08 02 00 00 01 1e 00 00 00 f7 RX f0 c1 00 08 02 00 00 01 1e 00 00 00 f7
+  residue none
+== peqQ
+  set     TX f0 c1 00 05 02 00 00 00 00 88 10 1e f7 RX f0 c1 00 05 02 00 00 00 00 88 10 1e f7
+  diff    0074:09->10
+  restore TX f0 c1 00 05 02 00 00 00 00 88 09 1e f7 RX f0 c1 00 05 02 00 00 00 00 88 09 1e f7
+  residue none
+disconnect RX f0 c1 00 0f 00 00 00 00 00 00 00 00 f7
