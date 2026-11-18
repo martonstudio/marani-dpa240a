@@ -1,4 +1,4 @@
-# usage: act.ps1 <action> [args]   actions: shot | click x y | dclick x y | type text | key keys
+# usage: act.ps1 <action> [args]   actions: shot | click x y | dclick x y | type text | clicktype "x,y" keys | key keys
 param([string]$a="shot",[string]$p1="",[string]$p2="")
 Add-Type -AssemblyName System.Windows.Forms,System.Drawing
 Add-Type @"
@@ -12,6 +12,7 @@ function Click($x,$y){[W]::SetCursorPos($x,$y)|Out-Null;Start-Sleep -m 120;[W]::
 switch($a){
  "click"{Click ([int]$p1) ([int]$p2)}
  "dclick"{Click ([int]$p1) ([int]$p2);Start-Sleep -m 80;Click ([int]$p1) ([int]$p2)}
+ "clicktype"{$xy=$p1 -split ',';Click ([int]$xy[0]) ([int]$xy[1]);Start-Sleep -m 300;[System.Windows.Forms.SendKeys]::SendWait($p2)}
  "type"{[System.Windows.Forms.SendKeys]::SendWait($p1)}
  "run"{Start-Process -FilePath $p1 -WorkingDirectory (Split-Path $p1)}
 }
