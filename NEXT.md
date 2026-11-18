@@ -2,10 +2,11 @@
 
 Map the early dialect's commands for the DPA240A (model id 0xC1).
 
-1. **Fake the 2448QRT search reply in the relay.** Add an option to `tools/surface/relay.ps1` that answers the editor's 0x1a device-search frames (`f0 09 01 1a 00 XX 00*6 f7`) itself, towards the editor only, and never forwards them to COM5. Start with a plain echo of the frame (editor's own id 0x09 and dev 01). If the editor does not accept the echo, vary the data bytes one idea at a time, at most five variants, and log what the editor does after each (screenshot only when the log shows no new frames). Everything else the editor sends after the search: forward to the unit as now (id/dev rewrite) and log both directions. The unit receives only frames the editor originated. Use a dedicated .bat per variant for the `dpa_relay` scheduled task (schtasks /tr cannot carry quoted arguments).
-2. **Stop at writes.** If the editor sends frames after the search that look like writes rather than reads, stop the relay and tell the user before forwarding more. The amps-off gate in CLAUDE.md still applies before any parameter change.
-3. **DPA480 V2.5 editor network mode** (the 260MFR editor has no network mode: MSComm only, skip it). Patched copy `C:\Program Files (x86)\DPA480 V2.5\DPA480_lo.exe` exists: UTF-16 "192.168.0." at file offset 0x1b218 changed to "127.168.0."; a second hit at 0x15398 is unchanged (patch it too if the editor still offers 192.168.0.x). Start the relay with `tools/surface/relay_480.bat` (`-FromId -1` learns the editor's id from its first frame; relay.ps1 on the Surface already has this). Report whether it gets past its device search; if its search is also 0x1a, apply step 1's faked reply.
-4. If neither the faked search reply nor the DPA480 editor reaches the parameter screens: stop and tell the user. The virtual COM pair driver (com0com) is next and the user will do it attended.
-5. Once an editor reaches its parameter screens: record connect, the full state read, then (after the amps gate) one change per parameter type.
+Waiting on the user. Both network-mode routes stopped short of the parameter screens (see PLAN.md Constraints: 2448QRT faked search, DPA480 scan):
+- 2448QRT: past the search with a faked 0x1a echo, but loading the device needs real 0x1a memory data, which the unit does not answer, and then sends 0x10/0x24, which are unclassified. Forwarding 0x10/0x24 to the unit needs the user's decision (they may be writes).
+- DPA480: its TCP scan rejects every address tried.
+
+1. User decision: forward 0x10 and 0x24 from the 2448QRT editor to the unit (after the amps gate), or move to the virtual COM pair driver (com0com), which the user does attended.
+2. Once an editor reaches its parameter screens: record connect, the full state read, then (after the amps gate) one change per parameter type.
 
 Done = a table in PLAN.md of command number -> meaning for read-state, gain, mute, delay, phase, crossover, EQ, limiter and routing, each backed by a recorded exchange with the unit.
