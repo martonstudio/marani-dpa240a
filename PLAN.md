@@ -10,7 +10,18 @@ An Android app that, plugged into the DPA240A with an OTG cable, reads and sets 
 4. Mac app with full control.
 5. Port to Android (`usb-serial-for-android`, OTG).
 
+## Command table (DPA240A, id 0xC1, dev 0, 9600 8N1, 13-byte frames `f0 c1 00 <cmd> D0..D7 f7`)
+Candidate map: `vendor/DPA480P_SerialProtocol.pdf`. Rows below are verified against the unit.
+
+| cmd | meaning | TX data | RX | capture |
+|---|---|---|---|---|
+| 0x00 | connect (locks front panel) | 00*8 | `00 c1 00*6` (D0 = model id) | captures/doc1_reads.log |
+| 0x0f | disconnect | 00*8 | echo | captures/doc1_reads.log |
+| 0x22 | read version (doc) | 00*8 | echo, all zero: no version returned (contradicts doc) | captures/doc1_reads.log |
+| 0x17 | read memory (read-state) | D0:D1 = 16-bit byte address, rest 0 (doc's adr8/Len ignored) | D0:D1 = address echo, D2..D5 = 4 data bytes | captures/doc2_read_layout.log |
+
 ## Constraints
+- 0x17 HANGS THE UNIT ABOVE ITS MEMORY: reads at 0x0000-0x1000 answer (0x0000 starts with the ASCII name "Coax8 3emory"); a read at 0x2000 got no reply and the unit then stopped answering everything, disconnect included (18 Nov 11:50, `captures/doc3_read_span.log`). Never read at 0x2000 or above; find the top by stepping up from 0x1000 only after a power-cycle, in small steps. Memory dump script: `tools/surface/dump.ps1` (connect, 0x17 per 4 bytes, guaranteed disconnect).
 - THE UNIT ANSWERS. Settings: 9600 baud, 8N1, DTR/RTS off, 13-byte frames `f0 <id> <dev> <cmd> <8 data bytes> f7`, model id **0xC1**, dev 0 for USB. Verified exchanges (sent from the Surface, COM5):
   - connect: TX `f0 c1 00 00 00 00 00 00 00 00 00 00 f7` -> RX `f0 c1 00 00 c1 00 00 00 00 00 00 00 f7`
   - disconnect: TX `f0 c1 00 0f 00*8 f7` -> RX identical echo
