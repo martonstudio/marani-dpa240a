@@ -20,7 +20,7 @@ const SLOPE: Scale = {
     { raw: 5, label: "BW 18" },
     { raw: 6, label: "BW 24" },
     { raw: 7, label: "LR 24" },
-    { raw: 8, label: "Slope 8" }, // accepted by the unit (clamps above 8); name unknown
+    { raw: 8, label: "BS 24" }, // unit accepts 0..8; 9th entry of the manual's slope list (Bypass, BW6, BW12, LR12, BS12, BW18, BW24, LR24, BS24, ...); not panel-checked
   ],
 };
 const SOURCE: Scale = {

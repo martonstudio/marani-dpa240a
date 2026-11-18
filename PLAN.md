@@ -37,8 +37,9 @@ Value scales (panel photos `captures/scaleB_photos/`, `captures/scaleC_photos/`,
 - Crossover slope: the document's list (0 none, 1 BW6, 2 BW12, 3 LR12, 4 BS12, 5 BW18, 6 BW24, 7 LR24, ...); 3 = "Lnk/Ril 12dB" and 7 = "Lnk/Ril 24dB" confirmed.
 - PEQ gain dB = (raw-30)*0.5 (0x24 = +3.0, 0x28 = +5.0); BW index 9 = 0.30, 20 = 0.85 (increasing). PEQ type (0x05 D3) is ignored: type 5 left the band a bell.
 - Source (0x08 D7): 0 InA, 1 InB, 2 InA+InB; 3 is clamped to 2 (no "None").
-- Ranges: the unit clamps out-of-range values and the clamp shows in the read-back (app CLI `try`, 18 Nov): gain 0..180 (-12..+6 dB), delay coarse 0..848, fine 0..48, PEQ freq 0..240, BW 0..63, PEQ gain 0..60, limiter attack 0..29, release 0..29 (3.0 s), threshold 0..150, crossover slope 0..8 (8 accepted, name unknown).
+- Ranges: the unit clamps out-of-range values and the clamp shows in the read-back (app CLI `try`, 18 Nov): gain 0..180 (-12..+6 dB), delay coarse 0..848, fine 0..48, PEQ freq 0..240, BW 0..63, PEQ gain 0..60, limiter attack 0..29, release 0..29 (3.0 s), threshold 0..150, crossover slope 0..8 (8 accepted; the user manual's list puts BS 24 ninth, so 8 = BS 24, not panel-checked).
 - Delay scale (derived, not panel-checked): coarse 1 ms, fine 1/48 ms; fits the panel's 0.375 m for coarse 1 + fine 5 at 340 m/s.
+- `vendor/DPA240A_User_Manual.pdf` (front panel only, no software section) describes a later firmware than this V1.05 unit: fine delay 10.4 us steps up to 0.9984 ms, coarse to 270 ms, gain -18..+12 dB, all contradicted by the unit's clamps. It also lists a limiter Bypass On/Off (no command byte found yet; 0x07 D4 had no visible effect) and the output menu order Name, Source, Gain, Delay, Phase, Limiter, HPF, LPF, EQ.
 - Inputs In A/B (chn 0/1): gain 0x01, delay 0x02 and PEQ 0x05 bands 0..4 set and read back at 0x0040/0x0053 (+0 gain, +1..+3 delay, +4+3*band); app `selftest` PASS on all six channels, 18 Nov.
 
 | 0x45, 0x06 | relative gain, EQ bypass | as document | no reply: not implemented | captures/vt1_out1_all.log |
