@@ -36,14 +36,12 @@ Protocol facts live in PLAN.md (command table, memory map, value scales). This f
 - The command whitelist lives in the protocol layer: only the verified commands (0x00, 0x0f, 0x01, 0x02, 0x03, 0x04, 0x05, 0x07, 0x08, 0x09, 0x17 with address < 0x2000). 0x28, 0x18, 0x10 and 0x24 are refused in code.
 - Always disconnect on close, unload and error.
 
-## Milestones (one commit each, each verified on the real unit)
-1. Skeleton and layers with interfaces. Web Serial transport and protocol: connect, read full state, disconnect, shown as a raw table in the browser on the Surface. Compare with `tools/dpa240a.py state`.
-2. Device definition and model: decoded values in real units. One live control (Out 1 gain) with read-back; restore afterwards.
-3. Full UI for all verified parameters, channel strips and EQ graph.
-4. Presets: save, recall, export/import, push with progress and read-back diff.
-5. Packaging: localhost server, desktop shortcut, install-as-app.
-Later: Pi WebSocket bridge, Capacitor builds, second device definition.
+## State (18 Nov): milestones 1-5 built and verified on the unit
+- Layers in `app/src/`: transport (webserial, websocket, sim), protocol (frame, guard, session), devices (types, dpa240a definition, logic), model (store with read-back and latest-wins), presets (snapshot, push with read-back diff, IndexedDB and file stores), ui. `app/cli/dpa.ts` drives the same layers from server: `tools/app.sh state|raw|fields|get|set|try|selftest|preset ...`.
+- Surface: `dpa_bridge` task serves the build on http://localhost:8240 and a WebSocket to COM5 (`app/bridge/Bridge.cs`). Desktop shortcut "DPA Control" opens it as an Edge app window (USB via Web Serial, or Bridge). Deploy with `tools/deploy_app.sh`.
+- Tests: `npm test` (unit, simulator), `npm run e2e:sim`, `npm run e2e:unit` (through the bridge tunnel; restores the unit), CLI `selftest` (all fields, all channels).
+- Open items are in NEXT.md.
 
-## Unverified assumptions to check first in milestone 1
-- Web Serial in the Surface's Edge opens the FTDI COM5 at 9600 with DTR/RTS off (known to work in Chromium on Windows; not yet tried here).
-- Chrome on Android's Web Serial support for USB serial adapters (it would remove the need for a native shell on Android). Check current support before relying on it.
+## Assumptions
+- Web Serial in the Surface's Edge (157) opens COM5 (FT232R) at 9600 and talks to the unit: verified 18 Nov (state identical to the Python read; set/restore; disconnect on page close seen in a USB capture). The port chooser needs one click per Edge profile; after that `getPorts()` reconnects without it.
+- Chrome on Android's Web Serial support for USB serial adapters is unchecked; check before choosing between Chrome-only and a Capacitor shell.
