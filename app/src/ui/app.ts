@@ -206,7 +206,10 @@ export class App {
     const m = this.ctx.model;
     this.ctx.model = null;
     this.transport = null;
-    if (m) m.session.markLost(); // the unit is gone; no disconnect frame can reach it
+    if (m) {
+      m.session.disconnectNow(); // best effort: the error may have been recoverable and the unit still connected
+      m.session.markLost();
+    }
     void t.close().catch(() => {});
     this.loadBar.hidden = true;
     this.setStatus("lost", "Link lost");

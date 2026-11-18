@@ -91,6 +91,7 @@ class Bridge
     static string Check(byte[] f)
     {
         if (f.Length != 13 || f[0] != 0xF0 || f[12] != 0xF7) return "not a 13-byte frame";
+        if (f[1] != 0xC1 || f[2] != 0) return "model id / device byte refused";
         int c = f[3];
         if (Forbidden.Contains(c) || !Allowed.Contains(c)) return "command 0x" + c.ToString("x2") + " refused";
         if (c == 0x17 && ((f[4] << 8) | f[5]) >= 0x2000) return "read at 0x2000+ refused";
@@ -148,7 +149,10 @@ class Bridge
             var buf = new byte[4096]; var pending = new List<byte>();
             while (ws.State == WebSocketState.Open)
             {
-                var r = await ws.ReceiveAsync(new ArraySegment<byte>(buf), CancellationToken.None);
+                // clients send "ping" every 10 s; one silent for 30 s is gone: free the port (and disconnect below)
+                var recv = ws.ReceiveAsync(new ArraySegment<byte>(buf), CancellationToken.None);
+                if (await Task.WhenAny(recv, Task.Delay(30000)) != recv) { Log("client silent for 30 s: dropping it"); break; }
+                var r = recv.Result;
                 if (r.MessageType == WebSocketMessageType.Close) break;
                 if (r.MessageType != WebSocketMessageType.Binary) continue;
                 for (int i = 0; i < r.Count; i++) pending.Add(buf[i]);
@@ -180,7 +184,7 @@ class Bridge
             }
             catch (Exception e) { Log("exit disconnect failed " + e.Message); }
             try { if (sp != null) sp.Close(); } catch { }
-            try { if (ws != null && ws.State == WebSocketState.Open) ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "bye", CancellationToken.None).Wait(2000); } catch { }
+            try { if (ws != null && ws.State == WebSocketState.Open) ws.Abort(); } catch { }
             Interlocked.Decrement(ref clients);
             Log("client gone, " + Com + " closed");
         }

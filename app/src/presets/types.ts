@@ -31,7 +31,10 @@ export function snapshot(dev: DeviceDefinition, mem: Uint8Array, name: string): 
 }
 
 export function presetMemory(p: Preset): Uint8Array {
-  return Uint8Array.from(p.memory.trim().split(/\s+/), (h) => parseInt(h, 16));
+  const parts = p.memory.trim().split(/\s+/);
+  const bad = parts.findIndex((h) => !/^[0-9a-f]{2}$/i.test(h));
+  if (bad >= 0) throw new Error(`preset memory has a bad byte at offset ${bad}: "${parts[bad]}"`);
+  return Uint8Array.from(parts, (h) => parseInt(h, 16));
 }
 
 export function validatePreset(dev: DeviceDefinition, p: unknown): Preset {

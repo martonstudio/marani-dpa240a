@@ -79,7 +79,7 @@ export function presetSidebar(ctx: Ctx, store: PresetStore, setBusy: (busy: bool
     const m = ctx.model;
     if (!m || !selected) return;
     const name = selected;
-    const target = presetMemory(await store.load(name));
+    const target = presetMemory(validatePreset(ctx.dev, await store.load(name)));
     const pending = diffImages(ctx.dev, m.mem!, target).filter((d) => d.settable).length;
     if (!(await confirmBox(`Recall "${name}"?`, `Sends ${pending} changed value${pending === 1 ? "" : "s"} to the unit, then reads the whole state back.`, "Recall"))) return;
     setBusy(true, `Recalling ${name}`);
@@ -113,7 +113,7 @@ export function presetSidebar(ctx: Ctx, store: PresetStore, setBusy: (busy: bool
   async function diff() {
     const mem = ctx.model?.mem;
     if (!mem || !selected) return;
-    const ds = diffImages(ctx.dev, mem, presetMemory(await store.load(selected)));
+    const ds = diffImages(ctx.dev, mem, presetMemory(validatePreset(ctx.dev, await store.load(selected))));
     say(ds.length ? h("div", {}, h("div", { class: "rep-sub", testid: "preset-diff-summary" }, `${ds.length} difference${ds.length === 1 ? "" : "s"} unit vs "${selected}"`), diffList(ds, "unit", "preset")) : h("div", { class: "rep-ok", testid: "preset-diff-summary" }, `Unit matches "${selected}".`));
   }
 

@@ -5,6 +5,8 @@ export class WebSerialTransport implements Transport {
   readonly name = "usb";
   private port: SerialPort | null = null;
   private reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+  // one writer for the port's lifetime: writes queue in the stream, so an unload disconnect can't hit a held lock
+  private writer: WritableStreamDefaultWriter<Uint8Array> | null = null;
   private dataCbs: ((b: Uint8Array) => void)[] = [];
   private lostCbs: ((r: string) => void)[] = [];
   private closing = false;
@@ -38,6 +40,7 @@ export class WebSerialTransport implements Transport {
     }
     await port.setSignals({ dataTerminalReady: false, requestToSend: false });
     this.port = port;
+    this.writer = port.writable!.getWriter();
     this.closing = false;
     this.loop = this.readLoop();
   }
@@ -53,7 +56,9 @@ export class WebSerialTransport implements Transport {
           if (value) for (const cb of this.dataCbs) cb(value);
         }
       } catch (e) {
-        if (!this.closing) for (const cb of this.lostCbs) cb(String(e));
+        // framing/parity/break/overrun errors are recoverable: port.readable is replaced and the loop continues.
+        // Only a null readable (device gone) is a lost link.
+        if (!this.closing && !port.readable) for (const cb of this.lostCbs) cb(String(e));
       } finally {
         this.reader.releaseLock();
         this.reader = null;
@@ -62,13 +67,8 @@ export class WebSerialTransport implements Transport {
   }
 
   async write(bytes: Uint8Array): Promise<void> {
-    if (!this.port?.writable) throw new Error("port not open");
-    const w = this.port.writable.getWriter();
-    try {
-      await w.write(bytes);
-    } finally {
-      w.releaseLock();
-    }
+    if (!this.writer) throw new Error("port not open");
+    await this.writer.write(bytes);
   }
 
   onData(cb: (b: Uint8Array) => void): void {
@@ -84,6 +84,10 @@ export class WebSerialTransport implements Transport {
       await this.reader?.cancel();
     } catch {}
     await this.loop?.catch(() => {});
+    try {
+      await this.writer?.close();
+    } catch {}
+    this.writer = null;
     try {
       await this.port?.close();
     } catch {}

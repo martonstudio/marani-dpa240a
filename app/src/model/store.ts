@@ -23,6 +23,13 @@ export class DeviceModel {
   private listeners: Listener[] = [];
   private latest = new Map<string, Map<string, number>>(); // throttle: pending values per channel/command
   private running = new Set<string>();
+  /** load/refresh/apply run one at a time: apply copies memory, sends, and re-reads as one step. */
+  private lock: Promise<unknown> = Promise.resolve();
+  private locked<T>(fn: () => Promise<T>): Promise<T> {
+    const p = this.lock.then(fn, fn);
+    this.lock = p.catch(() => {});
+    return p;
+  }
 
   constructor(readonly dev: DeviceDefinition, readonly session: Session) {}
 
@@ -41,7 +48,11 @@ export class DeviceModel {
    * Read the whole live state. With verify, read it twice and re-read every 4-byte block that differs until
    * two reads of it agree (one unreproduced bad read was seen on 18 Nov: whole blocks of zeros).
    */
-  async load(onProgress?: (done: number, total: number) => void, opts: { verify?: boolean } = {}): Promise<Uint8Array> {
+  load(onProgress?: (done: number, total: number) => void, opts: { verify?: boolean } = {}): Promise<Uint8Array> {
+    return this.locked(() => this.loadUnlocked(onProgress, opts));
+  }
+
+  private async loadUnlocked(onProgress?: (done: number, total: number) => void, opts: { verify?: boolean } = {}): Promise<Uint8Array> {
     const { liveFrom: from, liveTo: to } = this.dev;
     const total = Math.ceil((to - from) / 4) * (opts.verify ? 2 : 1);
     const a = await this.session.readMemory(from, to, (d) => onProgress?.(d, total));
@@ -76,7 +87,11 @@ export class DeviceModel {
   }
 
   /** Re-read the 4-byte blocks covering addrs and update the image. */
-  async refresh(addrs: number[]): Promise<void> {
+  refresh(addrs: number[]): Promise<void> {
+    return this.locked(() => this.refreshUnlocked(addrs));
+  }
+
+  private async refreshUnlocked(addrs: number[]): Promise<void> {
     if (!this.mem) throw new Error("state not loaded");
     const blocks = [...new Set(addrs.map((a) => a & ~3))];
     for (const b of blocks) {
@@ -88,7 +103,11 @@ export class DeviceModel {
   }
 
   /** Send one command with the given field values (others carried from current memory), then read back. */
-  async apply(ch: ChannelDef, c: CommandDef, values: Record<string, number>): Promise<SetResult> {
+  apply(ch: ChannelDef, c: CommandDef, values: Record<string, number>): Promise<SetResult> {
+    return this.locked(() => this.applyUnlocked(ch, c, values));
+  }
+
+  private async applyUnlocked(ch: ChannelDef, c: CommandDef, values: Record<string, number>): Promise<SetResult> {
     if (!this.mem) throw new Error("state not loaded");
     const img = this.mem.slice();
     const wanted: Record<string, number> = {};
@@ -100,7 +119,7 @@ export class DeviceModel {
     }
     const data = buildData(this.dev, ch, c, img);
     const r = await this.session.request(c.cmd, data);
-    await this.refresh(commandAddrs(ch, c));
+    await this.refreshUnlocked(commandAddrs(ch, c));
     const fields = c.sets.map((key) => ({ key, wanted: wanted[key], readBack: this.get(ch, key) }));
     return { channel: ch.id, command: c.key, sent: data, echo: r.echo, fields, ok: fields.every((x) => x.wanted === x.readBack) };
   }

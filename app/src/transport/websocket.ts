@@ -14,6 +14,7 @@ export class WebSocketTransport implements Transport {
   private dataCbs: ((b: Uint8Array) => void)[] = [];
   private lostCbs: ((r: string) => void)[] = [];
   private closing = false;
+  private ping: ReturnType<typeof setInterval> | null = null;
 
   constructor(private url: string, private WS: WSCtor = globalThis.WebSocket as unknown as WSCtor) {}
 
@@ -30,6 +31,8 @@ export class WebSocketTransport implements Transport {
             ready = true;
             clearTimeout(timer);
             this.ws = ws;
+            // keep-alive: the bridge drops a client it has not heard from for 30 s and frees the serial port
+            this.ping = setInterval(() => ws.readyState === 1 && ws.send("ping"), 10000);
             resolve();
           } else if (!ready) {
             clearTimeout(timer);
@@ -47,6 +50,8 @@ export class WebSocketTransport implements Transport {
         }
       };
       ws.onclose = (ev: CloseEvent) => {
+        if (this.ping) clearInterval(this.ping);
+        this.ping = null;
         if (ready && !this.closing) for (const cb of this.lostCbs) cb("bridge closed: " + (ev.reason || ev.code));
         this.ws = null;
       };
@@ -66,6 +71,8 @@ export class WebSocketTransport implements Transport {
 
   close(): Promise<void> {
     this.closing = true;
+    if (this.ping) clearInterval(this.ping);
+    this.ping = null;
     const ws = this.ws;
     this.ws = null;
     if (!ws) return Promise.resolve();

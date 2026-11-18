@@ -32,7 +32,10 @@ export class Session {
   private chain: Promise<unknown> = Promise.resolve();
   private timeoutMs: number;
   private retries: number;
+  /** True from the moment a connect is sent until the disconnect: a disconnect is owed while this is set. */
   connected = false;
+  /** Set by disconnect/disconnectNow/markLost: from then on only 0x0f may go out. */
+  private closing = false;
   log: LogFn;
 
   constructor(readonly transport: Transport, private policy: GuardPolicy & { dev: number }, opts: SessionOptions = {}) {
@@ -61,8 +64,14 @@ export class Session {
   request(cmd: number, data: number[], match?: (f: Frame) => boolean): Promise<Reply> {
     const f = this.frame(cmd, data);
     assertAllowed(f, this.policy); // throw synchronously-ish, before queueing
-    const m = match ?? ((r: Frame) => r.cmd === cmd && r.data[0] === data[0]);
-    const run = () => this.exchange(f, m);
+    if (this.closing && cmd !== 0x0f) return Promise.reject(new Error("session is closing"));
+    // 0x04 (HPF/LPF) and 0x05 (PEQ band) replies are told apart by D1 as well
+    const m = match ?? ((r: Frame) => r.cmd === cmd && r.data[0] === data[0] && (cmd !== 0x04 && cmd !== 0x05 ? true : r.data[1] === data[1]));
+    const run = () => {
+      // requests queued before the session started closing must not follow the disconnect
+      if (this.closing && cmd !== 0x0f) return Promise.reject(new Error("session is closing"));
+      return this.exchange(f, m);
+    };
     const p = this.chain.then(run, run);
     this.chain = p.catch(() => {});
     return p;
@@ -98,8 +107,10 @@ export class Session {
   }
 
   async connect(): Promise<number> {
-    const r = await this.request(0x00, [0, 0, 0, 0, 0, 0, 0, 0], (f) => f.cmd === 0x00);
+    this.closing = false;
+    // owed from the moment the connect goes out: the unit may act on it even if the reply is lost
     this.connected = true;
+    const r = await this.request(0x00, [0, 0, 0, 0, 0, 0, 0, 0], (f) => f.cmd === 0x00);
     const model = r.frame.data[0];
     if (model !== this.policy.modelId) {
       await this.disconnect().catch(() => {});
@@ -110,6 +121,7 @@ export class Session {
   }
 
   async disconnect(): Promise<void> {
+    this.closing = true;
     try {
       await this.request(0x0f, [0, 0, 0, 0, 0, 0, 0, 0], (f) => f.cmd === 0x0f);
       this.log("info", "disconnected");
@@ -139,6 +151,7 @@ export class Session {
    * (the page may be gone before any reply).
    */
   disconnectNow(): void {
+    this.closing = true;
     if (!this.connected) return;
     this.connected = false;
     this.log("tx", frameHex(this.frame(0x0f, [0, 0, 0, 0, 0, 0, 0, 0])) + " (unload)");
@@ -147,6 +160,7 @@ export class Session {
 
   /** The link is gone: nothing more can reach the unit. Fails the request in flight. */
   markLost(): void {
+    this.closing = true;
     this.connected = false;
     if (this.pending) {
       const p = this.pending;
