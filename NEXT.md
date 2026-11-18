@@ -2,7 +2,7 @@
 
 The decoding run's finish line is met (command table in PLAN.md; `tools/dpa240a.py selftest` PASS on Out 1, 18 Nov). Remaining gaps before full control / a dashboard:
 
-1. Value scales: one panel run is prepared. Send `tools/surface/scaleA_set.txt` (wrapped in connect/disconnect via seq.ps1; raw values: gain 0x6e, delay 00 01 +5, phase 1, limiter atk 05 rel 09 thr 0x64, HPF idx 0x30 slope 3, LPF idx 0xC0 slope 7, PEQ1 Q 0x14 gain 0x24, PEQ2 type 5 idx 0x60 gain 0x28, source 2), have the user read Out 1's pages (Source, Gain, Delay, Phase, Limiter, HPF, LPF, PEQ-01, PEQ-02), then send `scaleA_restore.txt` and confirm memory 0x0000-0x03FF equals captures/sa0.bin. PEQ type (0x05 D3) leaves no trace in memory, so only the panel shows it.
+1. Value scales still unread (rerun `scaleA_set.txt`, user types them, then `scaleA_restore.txt` and compare memory with captures/sb0.bin): limiter threshold for raw 0x64, HPF slope for code 3, LPF slope for code 7, PEQ-01 gain for 0x24, PEQ-02 type and gain for type 5 / 0x28. The camera cannot see the right edge of the display; ask the user to type these. Delay: derive the ms scale (switch Utility > System > Delay Units to ms, or compute from the metre readings).
 2. Inputs (chn 0/1): run `selftest` variants for gain, delay, PEQ on In A; test 0x0A compressor and 0x1A noise gate (document commands, inputs only), read where they land in memory.
 3. Channel names, S/PDIF/analog input select, link: no command known; leave read-only from memory.
 4. Level meters: no command known in the document; check whether any read returns live levels before planning a meter view.
