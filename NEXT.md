@@ -6,6 +6,14 @@ Milestones 1-5 of `plans/APP_PLAN.md` are built and verified on the unit (see th
 2. Recall takes ~20 s because push reads the full state twice before and after (verified reads); if that is too slow, read once before and verify only after.
 3. Later: Pi WebSocket bridge (same bridge protocol: "ready" text, binary frames), Capacitor Android build, second device definition.
 
+## iPhone/iPad remote + measurement (user idea, 18 Nov; not started, own session)
+Goal: an iOS app that remote-controls the app connected to the unit, plays test signals and measures with the microphone.
+Plan to evaluate first (one planning session, Opus, plan mode):
+1. Remote control: reuse the web app as an installable PWA on iOS, talking to the bridge's WebSocket over the LAN. Blockers: the Surface bridge listens on localhost only (LAN binding needs an http.sys URL reservation and a firewall rule = admin/registry change, user gate) and iOS needs HTTPS for microphone access; Tailscale HTTPS certificates (`tailscale cert`) or the Pi bridge are the candidate routes. Two clients at once (Surface page + phone) also needs the bridge to share one serial session instead of refusing the second client.
+2. Test tones: Web Audio on iOS (pink noise, sine, log sweep), started from a tap.
+3. Measurement: log-sweep transfer function (no clock sync needed) and an RTA. Check how far Safari lets getUserMedia turn off echo cancellation / noise suppression / auto gain; the built-in mic is uncalibrated, so plan for a calibration file or an external measurement mic. If Safari cannot give a clean signal, that is the reason to go native (AVAudioSession .measurement mode), which needs a Mac, Xcode and an Apple developer account (A$149/yr for normal installs).
+Verification: phone changes Out 1 gain through the bridge with read-back; a sweep measured through the system shows the PEQ change that was made.
+
 ## Protocol gaps (can run between app milestones)
 0. EQ filter type: ask the user whether the panel's PEQ page offers a Type setting on this V1.05 firmware. If yes, try the type value in 0x05 D1/D2/D4 and diff the full 8 KB; if no, bell-only is a firmware fact.
 
