@@ -7,12 +7,15 @@
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "cli": "tsx cli/dpa.ts"
+    "cli": "tsx cli/dpa.ts",
+    "e2e:sim": "vite build && (vite preview --port 4179 --strictPort & P=$!; sleep 2; node test/e2e-sim.mjs http://localhost:4179/ sim; R=$?; kill $P; exit $R)",
+    "e2e:unit": "node test/e2e-sim.mjs http://localhost:8240/ bridge"
   },
   "devDependencies": {
     "@types/node": "^20.19.43",
     "@types/w3c-web-serial": "^1.0.9",
     "@types/ws": "^8.18.2",
+    "playwright": "^1.48.2",
     "tsx": "4.19",
     "typescript": "5.6",
     "vite": "5.4",

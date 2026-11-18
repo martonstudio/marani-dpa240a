@@ -19,6 +19,7 @@ export interface Reply {
 interface Pending {
   match: (f: Frame) => boolean;
   resolve: (f: Frame) => void;
+  fail: (e: Error) => void;
 }
 
 /**
@@ -70,7 +71,7 @@ export class Session {
   private async exchange(f: Frame, match: (f: Frame) => boolean): Promise<Reply> {
     const bytes = encode(f);
     for (let attempt = 0; attempt <= this.retries; attempt++) {
-      const got = new Promise<Frame | null>((resolve) => {
+      const got = new Promise<Frame | null>((resolve, reject) => {
         const t = setTimeout(() => {
           if (this.pending?.resolve === done) this.pending = null;
           resolve(null);
@@ -79,7 +80,14 @@ export class Session {
           clearTimeout(t);
           resolve(r);
         };
-        this.pending = { match, resolve: done };
+        this.pending = {
+          match,
+          resolve: done,
+          fail: (e) => {
+            clearTimeout(t);
+            reject(e);
+          },
+        };
       });
       this.log("tx", frameHex(f) + (attempt ? " (retry)" : ""));
       await this.transport.write(bytes);
@@ -124,6 +132,27 @@ export class Session {
       onProgress?.(++n, total);
     }
     return out;
+  }
+
+  /**
+   * Page unload: write the disconnect frame at once, outside the queue, without waiting for the echo
+   * (the page may be gone before any reply).
+   */
+  disconnectNow(): void {
+    if (!this.connected) return;
+    this.connected = false;
+    this.log("tx", frameHex(this.frame(0x0f, [0, 0, 0, 0, 0, 0, 0, 0])) + " (unload)");
+    void this.transport.write(encode(this.frame(0x0f, [0, 0, 0, 0, 0, 0, 0, 0]))).catch(() => {});
+  }
+
+  /** The link is gone: nothing more can reach the unit. Fails the request in flight. */
+  markLost(): void {
+    this.connected = false;
+    if (this.pending) {
+      const p = this.pending;
+      this.pending = null;
+      p.fail(new Error("link lost"));
+    }
   }
 
   /** Disconnect if connected (errors ignored), then close the transport. */

@@ -122,10 +122,13 @@ export function parseValue(fl: Field, text: string): number {
   const s = fl.scale;
   if (s.kind === "enum" || s.kind === "bool") {
     const opts = s.kind === "enum" ? s.options : [{ raw: 0, label: s.off }, { raw: 1, label: s.on }];
+    if (s.kind === "bool" && /^(on|true|yes)$/i.test(t)) return 1;
+    if (s.kind === "bool" && /^(off|false|no)$/i.test(t)) return 0;
     const o = opts.find((x) => x.label.toLowerCase().replace(/\s/g, "") === t.toLowerCase().replace(/\s/g, ""));
     if (o) return o.raw;
-    if (/^(on|true)$/i.test(t) && s.kind === "bool") return 1;
-    if (/^(off|false)$/i.test(t) && s.kind === "bool") return 0;
+    // for bools "on"/"off" always mean the field's state (mute on = muted, phase on = inverted)
+    if (/^(on|true|yes)$/i.test(t) && s.kind === "bool") return 1;
+    if (/^(off|false|no)$/i.test(t) && s.kind === "bool") return 0;
   }
   const m = /^([-+]?\d*\.?\d+)\s*(k?)(hz|db|dbu|s|ms)?$/i.exec(t);
   if (m && (m[2] || m[3]) && (s.kind === "linear" || s.kind === "freq")) {

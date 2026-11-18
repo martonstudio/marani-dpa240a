@@ -61,7 +61,7 @@ function peqFields(base: number, bands: number, verified: boolean): { fields: Fi
 }
 
 function muteField(chn: number, verified: boolean): Field {
-  return f("mute", "Mute", "main", 0x158, 0, 1, { kind: "bool", off: "On", on: "Muted" }, verified, { bit: chn });
+  return f("mute", "Mute", "main", 0x158, 0, 1, { kind: "bool", off: "Live", on: "Muted" }, verified, { bit: chn });
 }
 const muteCmd = cmd("mute", 0x09, ["chn", 0, 0, 0, 0, 0, 0, { field: "mute" }], ["mute"]);
 

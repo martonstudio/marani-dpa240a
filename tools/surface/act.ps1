@@ -1,4 +1,4 @@
-# usage: act.ps1 <action> [args]   actions: shot | click x y | dclick x y | type text | clicktype "x,y" keys | key keys
+# usage: act.ps1 <action> [args]   actions: shot | click x y | dclick x y | type text | clicktype "x,y" keys | key keys | clicks "x,y;x,y;..." (one process, 400 ms apart)
 param([string]$a="shot",[string]$p1="",[string]$p2="")
 Add-Type -AssemblyName System.Windows.Forms,System.Drawing
 Add-Type @"
@@ -11,6 +11,7 @@ public class W{[DllImport("user32.dll")]public static extern bool SetProcessDPIA
 function Click($x,$y){[W]::SetCursorPos($x,$y)|Out-Null;Start-Sleep -m 120;[W]::mouse_event(2,0,0,0,[UIntPtr]::Zero);Start-Sleep -m 60;[W]::mouse_event(4,0,0,0,[UIntPtr]::Zero)}
 switch($a){
  "click"{Click ([int]$p1) ([int]$p2)}
+ "clicks"{foreach($c in ($p1 -split ';')){$xy=$c -split ',';Click ([int]$xy[0]) ([int]$xy[1]);Start-Sleep -m 400}}
  "dclick"{Click ([int]$p1) ([int]$p2);Start-Sleep -m 80;Click ([int]$p1) ([int]$p2)}
  "clicktype"{$xy=$p1 -split ',';Click ([int]$xy[0]) ([int]$xy[1]);Start-Sleep -m 300;[System.Windows.Forms.SendKeys]::SendWait($p2)}
  "type"{[System.Windows.Forms.SendKeys]::SendWait($p1)}
