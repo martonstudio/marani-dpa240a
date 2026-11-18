@@ -1,0 +1,59 @@
+connect RX f0 c1 00 00 c1 00 00 00 00 00 00 00 f7
+== gain
+  set     TX f0 c1 00 01 02 00 00 00 00 00 00 6e f7 RX f0 c1 00 01 02 00 00 00 00 00 00 6e f7
+  diff    0067:78->6e
+  restore TX f0 c1 00 01 02 00 00 00 00 00 00 78 f7 RX f0 c1 00 01 02 00 00 00 00 00 00 78 f7
+  residue none
+== delay
+  set     TX f0 c1 00 02 02 00 00 00 00 00 00 01 f7 RX f0 c1 00 02 02 00 00 00 00 00 00 01 f7
+  diff    006d:00->01
+  restore TX f0 c1 00 02 02 00 00 00 00 00 00 00 f7 RX f0 c1 00 02 02 00 00 00 00 00 00 00 f7
+  residue none
+== phase
+  set     TX f0 c1 00 03 02 00 00 00 00 00 01 78 f7 RX f0 c1 00 03 02 00 00 00 00 00 01 78 f7
+  diff    006e:00->01
+  restore TX f0 c1 00 03 02 00 00 00 00 00 00 78 f7 RX f0 c1 00 03 02 00 00 00 00 00 00 78 f7
+  residue none
+== hpf
+  set     TX f0 c1 00 04 02 00 00 00 00 00 18 00 f7 RX f0 c1 00 04 02 00 00 00 00 00 18 00 f7
+  diff    006f:00->18
+  restore TX f0 c1 00 04 02 00 00 00 00 00 00 00 f7 RX f0 c1 00 04 02 00 00 00 00 00 00 00 f7
+  residue none
+== lpf
+  set     TX f0 c1 00 04 02 01 00 00 00 00 d8 00 f7 RX f0 c1 00 04 02 01 00 00 00 00 d8 00 f7
+  diff    0071:f0->d8
+  restore TX f0 c1 00 04 02 01 00 00 00 00 f0 00 f7 RX f0 c1 00 04 02 01 00 00 00 00 f0 00 f7
+  residue none
+== peq1
+  set     TX f0 c1 00 05 02 00 00 00 00 88 09 24 f7 RX f0 c1 00 05 02 00 00 00 00 88 09 24 f7
+  diff    0075:1e->24
+  restore TX f0 c1 00 05 02 00 00 00 00 88 09 1e f7 RX f0 c1 00 05 02 00 00 00 00 88 09 1e f7
+  residue none
+== limiter
+  set     TX f0 c1 00 07 02 00 00 00 00 13 04 8c f7 RX f0 c1 00 07 02 00 00 00 00 13 04 8c f7
+  diff    006a:96->8c
+  restore TX f0 c1 00 07 02 00 00 00 00 13 04 96 f7 RX f0 c1 00 07 02 00 00 00 00 13 04 96 f7
+  residue none
+== routing
+  set     TX f0 c1 00 08 02 00 00 00 00 00 00 01 f7 RX f0 c1 00 08 02 00 00 00 00 00 00 01 f7
+  diff    0066:00->01
+  restore TX f0 c1 00 08 02 00 00 00 00 00 00 00 f7 RX f0 c1 00 08 02 00 00 00 00 00 00 00 f7
+  residue none
+== mute
+  set     TX f0 c1 00 09 02 00 00 00 00 00 00 00 f7 RX f0 c1 00 09 02 00 00 00 00 00 00 00 f7
+  diff    0158:fc->f8
+  restore TX f0 c1 00 09 02 00 00 00 00 00 00 01 f7 RX f0 c1 00 09 02 00 00 00 00 00 00 01 f7
+  residue none
+disconnect RX f0 c1 00 0f 00 00 00 00 00 00 00 00 f7
+
+gain     echo ok  change 0067:78->6e seen  restored yes  -> PASS
+delay    echo ok  change 006d:00->01 seen  restored yes  -> PASS
+phase    echo ok  change 006e:00->01 seen  restored yes  -> PASS
+hpf      echo ok  change 006f:00->18 seen  restored yes  -> PASS
+lpf      echo ok  change 0071:f0->d8 seen  restored yes  -> PASS
+peq1     echo ok  change 0075:1e->24 seen  restored yes  -> PASS
+limiter  echo ok  change 006a:96->8c seen  restored yes  -> PASS
+routing  echo ok  change 0066:00->01 seen  restored yes  -> PASS
+mute     echo ok  change 0158:fc->f8 seen  restored yes  -> PASS
+final state identical to start: True 
+SELFTEST PASS
