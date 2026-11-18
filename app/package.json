@@ -1,0 +1,22 @@
+{
+  "name": "dpa-control",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit && vite build",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "cli": "tsx cli/dpa.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "@types/w3c-web-serial": "^1.0.9",
+    "@types/ws": "^8.18.2",
+    "tsx": "4.19",
+    "typescript": "5.6",
+    "vite": "5.4",
+    "vitest": "2.1",
+    "ws": "^8.23.0"
+  }
+}
