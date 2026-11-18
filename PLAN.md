@@ -28,7 +28,15 @@ Candidate map: `vendor/DPA480P_SerialProtocol.pdf`. Rows below are verified agai
 | 0x07 | limiter | `<chn> 00*3 <byp?> <attack 0..29> <release> <threshold 0..150, 150 = +20 dBu>` (D5/D7 swapped vs document; D4 no visible effect) | echo; memory +2 attack, +3 release, +4 threshold | captures/vt5_maps.log |
 | 0x08 | routing (output source) | `<chn> 00*6 <source>`: D7 = source (0 = InA as shown on the panel; 1 = InB per the patch layout); the document's En/InA..InD bytes (D3..D6) and D1/D2 have no effect | echo; memory +0 | captures/vt7_routing_pos.log, captures/vt6_routing_panel.log |
 
-Value scales (panel photos `captures/scaleB_photos/`, 18 Nov, Out 1): gain byte 0.1 dB/step, 0x78 = 0.0 dB (0x6E showed -1.0 dB; range ends untested). Delay coarse 1 + fine 5 showed 0.375 m (the unit's delay unit is metres; ms scale not yet derived). Phase 1 = Invert. Limiter attack index 5 = 10 ms, 0x13 = 50 ms; release index 9 = 1.0 s (0.1 s steps from 0.1 s); threshold 150 = +20 dBu. Frequency index f = 20 Hz * 2^(idx/24) shown rounded to the panel's table (48 = 80.0 Hz, 96 = 315 Hz, 136 = 1.00 kHz, 192 = 5.00 kHz, 240 = 20 kHz). PEQ BW index 9 = 0.30, 20 = 0.05 (decreasing). Source D7: 0 InA, 1 InB, 2 InA+InB (3 None, untested). Not yet read: limiter threshold scale, slope codes 3/7, PEQ gain on panel for 0x24/0x28, PEQ type 5.
+Value scales (panel photos `captures/scaleB_photos/`, `captures/scaleC_photos/`, 18 Nov, Out 1):
+- Gain: 0.1 dB/step, 0x78 = 0.0 dB (0x6E = -1.0 dB); range ends untested.
+- Delay: coarse 1 + fine 5 shows 0.375 m (the unit displays metres); ms scale not yet derived.
+- Phase: 1 = Invert.
+- Limiter: threshold dBu = -10 + 0.2*raw (100 = +10.0, 150 = +20.0); attack index 5 = 10 ms, 19 = 50 ms; release = 0.1 s * (raw+1) (4 = 0.5 s, 9 = 1.0 s).
+- Frequency (HPF, LPF, PEQ): f = 20 Hz * 2^(raw/24), shown rounded to the panel's table (48 = 80.0 Hz, 96 = 315 Hz, 136 = 1.00 kHz, 192 = 5.00 kHz, 240 = 20 kHz).
+- Crossover slope: the document's list (0 none, 1 BW6, 2 BW12, 3 LR12, 4 BS12, 5 BW18, 6 BW24, 7 LR24, ...); 3 = "Lnk/Ril 12dB" and 7 = "Lnk/Ril 24dB" confirmed.
+- PEQ gain dB = (raw-30)*0.5 (0x24 = +3.0, 0x28 = +5.0); BW index 9 = 0.30, 20 = 0.85 (increasing). PEQ type (0x05 D3) is ignored: type 5 left the band a bell.
+- Source (0x08 D7): 0 InA, 1 InB, 2 InA+InB (3 None untested).
 
 | 0x45, 0x06 | relative gain, EQ bypass | as document | no reply: not implemented | captures/vt1_out1_all.log |
 | 0x09 | mute: verified on the panel (MUTE LEDs). Channel byte D0: 0=In A, 1=In B, 2..5=Out 1..4; 6..11: user saw all MUTE LEDs turn on and off at each of these steps (mute-all behaviour, user report 18 Nov 13:25; avoid 6..11) | `<chn> 00*6 <1 on/0 off>` | echo of TX | captures/doc6_visual_mute_all.log, captures/doc7_channel_map.log |
