@@ -4,7 +4,8 @@
 Milestones 1-5 of `plans/APP_PLAN.md` are built and verified on the unit (see the plan's "State" section). Open items:
 1. Panel check, batched in one timed run with the user: Utility > System > Delay Units = ms, set Out 1 delay to coarse 10 + fine 24 from the app; panel should show 10.5 ms if the derived scale (1 ms + 1/48 ms) is right. Same run: name of crossover slope 8 (set Out 1 HPF slope 8, read the panel), attack index 0 and 29, BW index 0 and 63.
 2. Recall takes ~20 s because push reads the full state twice before and after (verified reads); if that is too slow, read once before and verify only after.
-3. Later: Pi WebSocket bridge (same bridge protocol: "ready" text, binary frames), Capacitor Android build, second device definition.
+3. Linux/Pi bridge (`app/bridge/bridge.py`, Python standard library only; passes `app/bridge/test_bridge.py` on macOS and Linux against a simulated unit, and the CLI reads state through it). Not yet run against the real unit or on a Pi. When a board is in hand: plug the unit into it, run `tools/deploy_pi.sh user@host` (unverified: never run), open `http://<host>:8240/` on a phone, then `npm run cli -- selftest --url ws://<host>:8240/ws`. It listens on the whole LAN with no login: anyone on that Wi-Fi can change the unit.
+4. Later: Capacitor Android build, second device definition.
 
 ## iPhone/iPad remote + measurement (user idea, 18 Nov; not started, own session)
 Goal: an iOS app that remote-controls the app connected to the unit, plays test signals and measures with the microphone.

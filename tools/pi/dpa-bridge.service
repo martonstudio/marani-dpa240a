@@ -1,0 +1,15 @@
+# DPA bridge on a Raspberry Pi (or any Linux box): serves the app and the WebSocket to the unit.
+# Installed by tools/deploy_pi.sh as a system service running as the login user (in group dialout).
+[Unit]
+Description=DPA240A control bridge
+After=network.target
+
+[Service]
+User=%USER%
+WorkingDirectory=/home/%USER%/dpa
+ExecStart=/usr/bin/python3 /home/%USER%/dpa/bridge.py /home/%USER%/dpa/dist 8240 %SERIAL% 9600 0.0.0.0
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

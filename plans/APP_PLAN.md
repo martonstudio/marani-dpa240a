@@ -40,6 +40,7 @@ Protocol facts live in PLAN.md (command table, memory map, value scales). This f
 - Layers in `app/src/`: transport (webserial, websocket, sim), protocol (frame, guard, session), devices (types, dpa240a definition, logic), model (store with read-back and latest-wins), presets (snapshot, push with read-back diff, IndexedDB and file stores), ui. `app/cli/dpa.ts` drives the same layers from server: `tools/app.sh state|raw|fields|get|set|try|selftest|preset ...`.
 - Surface: `dpa_bridge` task serves the build on http://localhost:8240 and a WebSocket to COM5 (`app/bridge/Bridge.cs`). Desktop shortcut "DPA Control" opens it as an Edge app window (USB via Web Serial, or Bridge). Deploy with `tools/deploy_app.sh`.
 - Tests: `npm test` (unit, simulator), `npm run e2e:sim`, `npm run e2e:unit` (through the bridge tunnel; restores the unit), CLI `selftest` (all fields, all channels).
+- Linux/macOS bridge: `app/bridge/bridge.py` (same protocol and frame checks as `Bridge.cs`, listens on the LAN), service file `tools/pi/dpa-bridge.service`, installer `tools/deploy_pi.sh`. Test: `python3 app/bridge/test_bridge.py` (simulated unit on a pseudo-terminal).
 - Open items are in NEXT.md.
 
 ## Assumptions
